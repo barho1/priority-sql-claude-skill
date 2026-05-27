@@ -16,6 +16,14 @@ description: >
 
 Priority uses a proprietary procedural SQL dialect. It resembles T-SQL superficially but has significant differences. Always apply these rules — Priority code that looks "standard" may silently fail or produce wrong results if standard SQL assumptions are carried over.
 
+## Language philosophy
+
+Priority's SQL is intentionally imperative. Where standard SQL lets you describe *what* you want in a single set-based statement, Priority requires you to describe *how* — one scalar at a time. Most patterns in this skill exist because of that constraint: missing language features (no COALESCE, no subquery in SET, no UPDATE...FROM) are compensated by pre-computing into a variable, then acting on it. Once you internalize this, the code becomes predictable: every non-trivial expression resolves to a `SELECT ... FROM DUMMY` assignment; every per-row operation becomes a cursor loop; every shared logic becomes a buffer with `#INCLUDE`.
+
+The grain of the language is: **pre-compute, then act. Flow via labels, not nesting. Defer form-specific logic to the caller.**
+
+Working with that grain produces verbose but readable code — every step is explicit and traceable. Fighting it (trying to compress logic into a single statement) usually produces something that fails silently or is difficult to debug.
+
 ---
 
 ## 1. Unsupported syntax (never use these)
@@ -506,7 +514,63 @@ ERRMSG 1 WHERE EXISTS (SELECT 1 FROM GENERALLOAD WHERE LOADED <> 'Y');
 
 ---
 
-## 10. Pre-computation pattern for complex INSERTs
+## 10. GENERALLOAD row accumulation — header + subform lines
+
+When loading a document with subform lines via GENERALLOAD, both the
+header and line rows go into the same temp table in a single pass,
+distinguished by RECORDTYPE and LINE order. This is non-obvious: the
+table looks flat but encodes a hierarchy through insertion order.
+
+RECORDTYPE is 3 characters. The traditional convention is numeric
+strings — `'1'` for the header record, `'2'` for subform lines, and so
+on for deeper levels. Alphanumeric codes (`'ORD'`, `'ITM'`) are valid
+and can hint at meaning, but 3 characters is rarely enough to be
+self-documenting — a comment per INSERT is usually more useful than
+relying on the value itself.
+
+```sql
+SELECT SQL.TMPFILE INTO :GEN_TMP FROM DUMMY;
+LINK GENERALLOAD TO :GEN_TMP;
+GENMSG 1 WHERE :RETVAL <= 0;
+
+:LINE = 0;
+
+/* Record type '1' — order header */
+:LINE = :LINE + 1;
+INSERT INTO GENERALLOAD (LINE, RECORDTYPE, TEXT1, TEXT2)
+VALUES (:LINE, '1', :ORDNAME, :CUSTNAME);
+
+LABEL 2000;
+FETCH Items_Cursor INTO :PARTNAME, :QTY;
+GOTO 2998 WHERE :RETVAL <= 0;
+
+/* Record type '2' — order line item */
+:LINE = :LINE + 1;
+INSERT INTO GENERALLOAD (LINE, RECORDTYPE, TEXT1, REAL1)
+VALUES (:LINE, '2', :PARTNAME, :QTY);
+LOOP 2000;
+
+LABEL 2998;
+EXECUTE INTERFACE 'ORDERS', SQL.TMPFILE, '-L', :GEN_TMP;
+
+ERRMSG 1 WHERE EXISTS (
+    SELECT 1 FROM ERRMSGS WHERE USER = SQL.USER AND TYPE = 'i'
+);
+
+UNLINK GENERALLOAD;
+```
+
+Key rules:
+- LINE must be strictly incrementing across all record types — it
+  determines processing order, not just row uniqueness.
+- The header row must precede its child rows.
+- RECORDTYPE values and their column mappings are defined in the
+  interface definition, not in the code. The code is opaque without
+  the interface open alongside it — comment each INSERT accordingly.
+
+---
+
+## 11. Pre-computation pattern for complex INSERTs
 
 When an `INSERT ... SELECT` requires conditional flags or lookup values that would need correlated subqueries or complex inline logic, pre-compute into STACK tables first, then do a clean JOIN-based INSERT.
 
@@ -536,7 +600,7 @@ UNLINK AND REMOVE STACK LEAFPARTS;
 
 ---
 
-## 11. Code style conventions
+## 12. Code style conventions
 
 ### Line length — 68 characters
 Priority text lines are 68 characters long. Break long lines to stay within this limit. Never break in the middle of a name or a keyword.
@@ -646,6 +710,62 @@ between LOGPART and PART, or between multiple PRE-INSERT triggers).
 
 Ref: [Including One Trigger in Another](https://prioritysoftware.github.io/sdk/Include-Triggers)
 
+#### Abstract SUB pattern — deferred calculation via `#INCLUDE`
+
+When shared trigger logic needs a value that is computed differently per
+form, and passing a pre-computed variable would be too complex, the
+calculation can be deferred to the including form via an **unimplemented
+SUB**. The shared trigger calls the SUB; each including form provides its
+own implementation after the `#INCLUDE` line.
+
+This is the Priority equivalent of an abstract method in OOP: the buffer
+defines the algorithm, and each caller supplies the missing piece.
+
+**Design rules:**
+- The shared trigger (`GOSUB N`) calls a SUB that it does **not** implement.
+- The buffer is defined in one form (e.g. `ORDERS`) and referenced via `#INCLUDE`.
+- Each including trigger appends its own `SUB N; ... RETURN;` block after the `#INCLUDE`.
+- The SUB number must not collide with any SUB already defined in the including trigger.
+
+**Example — display count of open documents on form open:**
+
+Buffer trigger `ORDERS/BUF1_PRIV` (the shared core):
+```sql
+GOSUB 1457;                                    /* get count — implemented by caller */
+SELECT ITOA(:OPEN_DOCS) INTO :PAR1 FROM DUMMY;
+WRNMSG 1458;
+```
+
+`ORDERS/PRE-FORM` (includes buffer, supplies ORDERS-specific count):
+```sql
+#INCLUDE ORDERS/BUF1_PRIV
+SUB 1457;
+SELECT COUNT(*) INTO :OPEN_DOCS
+FROM   ORDERS
+WHERE  CURDATE = SQL.DATE8
+AND    CLOSED <> 'C';
+RETURN;
+```
+
+`DOCUMENTS_T/PRE-FORM` (includes same buffer, supplies its own count):
+```sql
+#INCLUDE ORDERS/BUF1_PRIV
+SUB 1457;
+SELECT COUNT(*) INTO :OPEN_DOCS
+FROM   DOCUMENTS
+WHERE  TYPE    = 'T'
+AND    CURDATE = SQL.DATE8
+AND    FINAL   <> 'Y';
+RETURN;
+```
+
+**When to use this pattern:**
+- The shared logic is non-trivial and must not be duplicated.
+- The per-form input requires a query or multi-step calculation — not a
+  simple scalar that could be passed as a variable before the `#INCLUDE`.
+- If the input *can* be pre-computed trivially, set a variable before the
+  `#INCLUDE` instead; that is simpler and does not require an open SUB.
+
 ### Indentation
 Priority text forms reject lines that begin with whitespace (spaces or tabs). To indent continuation lines, start with a blank comment `/**/` followed by spaces:
 
@@ -675,7 +795,7 @@ This applies anywhere a logical continuation line would otherwise start with whi
 
 ---
 
-## 12. Procedures
+## 13. Procedures
 
 A procedure is a sequence of named steps executed in order. The most
 common pattern in custom development is a **processed report**: user
@@ -762,7 +882,7 @@ Ref: [Procedures](https://prioritysoftware.github.io/sdk/Procedures)
 
 ---
 
-## 13. CREATE TABLE syntax
+## 14. CREATE TABLE syntax
 
 Priority's `CREATE TABLE` syntax is not standard SQL. The format is:
 
@@ -834,7 +954,7 @@ Width for `REAL` columns follows the destination table's precision requirements.
 
 ---
 
-## 14. SDK reference
+## 15. SDK reference
 
 Always prefer the live web SDK over any PDF version — the web version is current.
 
@@ -853,7 +973,7 @@ Always prefer the live web SDK over any PDF version — the web version is curre
 
 ---
 
-## 15. ENTMESSAGE
+## 16. ENTMESSAGE
 
 `ENTMESSAGE` retrieves the text of a numbered message defined on a form
 or procedure, and expands any parameter placeholders in that text using
@@ -953,7 +1073,7 @@ Ref: [ENTMESSAGE — Scalar Expressions](https://prioritysoftware.github.io/sdk/
 
 ---
 
-## 16. CHOOSE-FIELD column — full creation workflow
+## 17. CHOOSE-FIELD column — full creation workflow
 
 A CHOOSE-FIELD column presents the user with a picklist of predefined values.
 Creating one is a multi-step process involving a values table, a form, a
@@ -1132,7 +1252,7 @@ Rules:
 
 ---
 
-## 17. Inspecting form structure via the Priority REST API
+## 18. Inspecting form structure via the Priority REST API
 
 When writing triggers or business rules it is often necessary to know:
 - what columns a form has (names, types, join info)
@@ -1259,7 +1379,7 @@ This is large — prefer the targeted EFORM query above when you know the form n
 
 ---
 
-## 18. SQL system functions and variables
+## 19. SQL system functions and variables
 
 ### System functions
 
@@ -1399,7 +1519,7 @@ Ref: [SQL Functions and Variables](https://prioritysoftware.github.io/sdk/SQL-Fu
 
 ---
 
-## 19. Scalar functions (Scalar Expressions)
+## 20. Scalar functions (Scalar Expressions)
 
 All functions below are available as scalar expressions in SELECT lists,
 WHERE clauses, and variable assignments.
@@ -1607,7 +1727,7 @@ SELECT NEWATTACH('LOGFILE', '.zip') FROM DUMMY;
 
 ---
 
-## 20. Form triggers
+## 21. Form triggers
 
 Ref: [Form Triggers](https://prioritysoftware.github.io/sdk/Form-Triggers)
 | [Creating Your Own Triggers](https://prioritysoftware.github.io/sdk/Creating-your-Triggers)
@@ -1786,4 +1906,3 @@ assign `:ACTIVATE_POST_FORM = 'Y'` in a `PRE-FORM` trigger.
 
 Cross-ref §18 — *PRE-FORM automation* for the full list of related system
 variables (`:KEYSTROKES`, `:PREFORMQUERY`, `:ACTIVATE_POST_FORM`, etc.).
-
