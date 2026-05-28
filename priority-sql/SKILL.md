@@ -621,7 +621,7 @@ This applies anywhere a logical continuation line would otherwise start with whi
   with variable holes). This keeps Hebrew and other non-ASCII text out of trigger
   code, makes strings translatable, and eliminates duplicate literals via DRY.
   Only single-character flags (`'Y'`, `'\0'`), pure SQL punctuation, and strings
-  built entirely from variables belong inline. See the `priority-sql-ref` skill §5 for the full ENTMESSAGE reference.
+  built entirely from variables belong inline. See the `priority-sql-ref` skill §4 for the full ENTMESSAGE reference.
 
 ---
 

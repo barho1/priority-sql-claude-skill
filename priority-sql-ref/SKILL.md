@@ -1,96 +1,25 @@
 ---
 name: priority-sql-ref
 description: >
-  Priority ERP SQL reference — CREATE TABLE and FOR TABLE INSERT DBI syntax,
-  SDK reference index, scalar functions (STRCAT, ITOA, ATOI, ATOR, RTOA,
-  DTOA, ATOD, STRLEN, SUBSTR, STRPIECE, STRINDEX, TOUPPER, TOLOWER, ROUND,
-  MOD, MINOP, MAXOP, ABS, SQRT, POW, date functions YEAR/MONTH/MDAY/WEEK/
-  QUARTER/BEGINOFMONTH/ENDOFMONTH/BEGINOFYEAR/ENDOFYEAR, SYSPATH, NEWATTACH,
-  ENTMESSAGE), system functions (SQL.USER, SQL.DATE, SQL.DATE8, SQL.TMPFILE,
-  SQL.GUID, SQL.ORACLE, SQL.HOSTING, SQL.ENV), and system variables
-  (:SCRLINE, :PAR1-3, :KEYSTROKES, :FORM_INTERFACE, :_CHANGECOUNT,
-  :PREFORMQUERY, :ACTIVATE_POST_FORM, :NETDEFS_*), and ENTMESSAGE (syntax,
-  parameter expansion, message numbering conventions). Use when looking up a
-  specific function, variable, column type, or table creation syntax.
+  Priority ERP SQL reference — SDK reference index, scalar functions (STRCAT,
+  ITOA, ATOI, ATOR, RTOA, DTOA, ATOD, STRLEN, SUBSTR, STRPIECE, STRINDEX,
+  TOUPPER, TOLOWER, ROUND, MOD, MINOP, MAXOP, ABS, SQRT, POW, date functions
+  YEAR/MONTH/MDAY/WEEK/QUARTER/BEGINOFMONTH/ENDOFMONTH/BEGINOFYEAR/ENDOFYEAR,
+  date arithmetic, SYSPATH, NEWATTACH, ENTMESSAGE), system functions
+  (SQL.USER, SQL.DATE, SQL.DATE8, SQL.TMPFILE, SQL.GUID, SQL.ORACLE,
+  SQL.HOSTING, SQL.ENV), and system variables (:SCRLINE, :PAR1-3,
+  :KEYSTROKES, :FORM_INTERFACE, :_CHANGECOUNT, :PREFORMQUERY,
+  :ACTIVATE_POST_FORM, :NETDEFS_*), and ENTMESSAGE (syntax, parameter
+  expansion, message numbering conventions). For DBI (CREATE TABLE, FOR TABLE
+  INSERT), see the `priority-sql-dbi` skill. Use when looking up a specific
+  function or variable.
 ---
 
 # Priority ERP SQL — Reference
 
 ---
 
-## 1. CREATE TABLE syntax
-
-Priority's `CREATE TABLE` syntax is not standard SQL. The format is:
-
-```
-CREATE TABLE TABLENAME 'Title' flags
-COLNAME (TYPE, width[, decimals], 'Title')
-...
-UNIQUE (col1[, col2, ...])
-NONUNIQUE (col1[, col2, ...])
-;
-```
-
-Example (from the built-in STACK4 table):
-```
-CREATE TABLE STACK4 'STACK4' 0
-KEY        (INT,13,'Key')
-INTDATA    (INT,17,'INTDATA')
-REALDATA   (REAL,16,3,'REALDATA')
-DATADATE   (DATE,8,'DATADATE')
-DOCNO      (CHAR,16,'Document')
-DETAILS    (RCHAR,64,'Details')
-CHARDATA   (CHAR,1,'CHARDATA')
-UNIQUE (KEY)
-NONUNIQUE (INTDATA,CHARDATA)
-;
-```
-
-### Flags (after the title)
-
-| Value | Meaning |
-|-------|---------|
-| `0` | Single-company table (most tables) |
-| `2` | Multi-company table — data is shared across companies (e.g. unified balance sheet in a multi-company environment) |
-
-### Column types
-
-| Type | Usage |
-|------|-------|
-| `INT` | Integer |
-| `REAL` | Floating point / decimal |
-| `CHAR` | Fixed-length left-to-right string (e.g. English) |
-| `RCHAR` | Fixed-length right-to-left string (e.g. Hebrew) |
-| `DATE` | Date (stored internally as integer — minutes since 01/01/88) |
-| `TIME` | Time |
-
-### Column width conventions for `INT`
-
-| Width | Purpose |
-|-------|---------|
-| `13` | Key fields — auto-unique keys, foreign keys (e.g. `KLINE`, `PART`) |
-| `3` | Sort / display-order fields |
-| `17` | Numeric data — prices, quantities, amounts |
-
-Width for `REAL` columns follows the destination table's precision requirements. The stored value will be truncated to whatever precision the destination column uses on INSERT.
-
-`CHAR(1)` is commonly used as a boolean flag — `'Y'` for true, `'N'` or `'\0'` for false. Initialize with `'\0'` (not `''`).
-
-### Indexes
-
-- `UNIQUE (col1[, col2])` — unique index across one or more columns.
-- `NONUNIQUE (col1[, col2])` — non-unique index for query performance.
-- A table can have multiple `UNIQUE` and `NONUNIQUE` index declarations.
-- Index naming follows the `TABLENAME_N` convention (e.g. `ARNT_MYTABLE_1`) when naming is required externally, but index names are not specified inside the `CREATE TABLE` statement itself.
-
-### Notes
-- No commas between column definitions — each column is on its own line.
-- The statement is terminated with a bare `;` on its own line.
-- Column titles (the quoted string) are display labels; they can be in any language.
-
----
-
-## 2. SDK reference
+## 1. SDK reference
 
 Always prefer the live web SDK over any PDF version — the web version is current.
 
@@ -103,13 +32,13 @@ Always prefer the live web SDK over any PDF version — the web version is curre
 - [Including one trigger in another (#INCLUDE, buffers)](https://prioritysoftware.github.io/sdk/Include-Triggers)
 - [Execute FormLoads / EXECUTE INTERFACE](https://prioritysoftware.github.io/sdk/Execute-FormLoads)
 - [STACKERR](https://prioritysoftware.github.io/sdk/STACKERR)
-- [DBI syntax (CREATE TABLE, FOR TABLE INSERT)](https://prioritysoftware.github.io/sdk/DBI-Syntax)
+- [DBI syntax (CREATE TABLE, FOR TABLE INSERT)](https://prioritysoftware.github.io/sdk/DBI-Syntax) — see `priority-sql-dbi` for the full reference
 - [Accessing related forms / dynamic zoom](https://prioritysoftware.github.io/sdk/Accessing-Related-Form)
 - [REST API – modifying related entities](https://prioritysoftware.github.io/restapi/modify/#Inserting_a_Related_Entity)
 
 ---
 
-## 3. SQL system functions and variables
+## 2. SQL system functions and variables
 
 ### System functions
 
@@ -249,7 +178,7 @@ Ref: [SQL Functions and Variables](https://prioritysoftware.github.io/sdk/SQL-Fu
 
 ---
 
-## 4. Scalar functions (Scalar Expressions)
+## 3. Scalar functions (Scalar Expressions)
 
 All functions below are available as scalar expressions in SELECT lists,
 WHERE clauses, and variable assignments.
@@ -401,6 +330,37 @@ SELECT QUARTER(09/22/06) FROM DUMMY; /* '3Q-2006'     */
 
 ---
 
+### Date arithmetic
+
+Priority stores dates as integers (minutes since 01/01/88). Use the
+`HH:MM` time-literal notation for offsets — it reads as intent rather
+than a raw number.
+
+| Expression | Meaning |
+|------------|---------|
+| `:DATE + 24:00` | Add one day |
+| `:DATE - 24:00` | Subtract one day |
+| `:DATE + 7 * 24:00` | Add seven days |
+| `:DATE + 1:00` | Add one hour |
+
+```sql
+:TOMORROW  = :TODAY + 24:00;
+:NEXT_WEEK = :TODAY + 7 * 24:00;
+:YESTERDAY = :TODAY - 24:00;
+```
+
+**Day difference between two dates:**
+```sql
+:DIFF_DAYS = (ROUND(:DATE2) - ROUND(:DATE1)) / 24:00;
+```
+
+`ROUND()` strips the time component (rounds to the nearest day boundary),
+ensuring the difference counts whole days rather than including partial-day
+offsets. Use `SQL.DATE8` instead of `SQL.DATE` when you need today's date
+without a time component.
+
+---
+
 ### Date arithmetic — period boundaries
 
 | Function | Syntax | Returns |
@@ -444,7 +404,7 @@ See §2 in the `priority-sql` skill for DTOA in variable initialization, and §5
 
 | Function | Syntax | Returns | Notes |
 |----------|--------|---------|-------|
-| `ENTMESSAGE` | `ENTMESSAGE(entity, type, num)` | CHAR | Returns numbered message text with `<P1>`–`<P3>` placeholders expanded. See §5 in this skill for full reference |
+| `ENTMESSAGE` | `ENTMESSAGE(entity, type, num)` | CHAR | Returns numbered message text with `<P1>`–`<P3>` placeholders expanded. See §4 in this skill for full reference |
 | `SYSPATH` | `SYSPATH(folder, output_type)` | CHAR | Path to a system folder. `folder`: `BIN`, `PREP`, `LOAD`, `MAIL`, `SYS`, `TMP`, `SYNC`, `IMAGE`. `output_type`: `1` = relative, `0` = absolute |
 | `NEWATTACH` | `NEWATTACH(filename, extension)` | CHAR | Creates a unique path in the system mail folder. Extension optional but recommended (include the dot, e.g. `'.zip'`). Handles naming conflicts automatically |
 
@@ -457,7 +417,7 @@ SELECT NEWATTACH('LOGFILE', '.zip') FROM DUMMY;
 
 ---
 
-## 5. ENTMESSAGE
+## 4. ENTMESSAGE
 
 `ENTMESSAGE` retrieves the text of a numbered message defined on a form
 or procedure, and expands any parameter placeholders in that text using

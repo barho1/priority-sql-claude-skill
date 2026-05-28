@@ -78,6 +78,8 @@ INSERT PRIV_FNCCLASS (INT,13,'סיווג_כספים_(ID)')
 - If adding to a **private** table (name already has the prefix), the
   column itself does not need the prefix — the table isolation is sufficient.
 
+For FOR TABLE INSERT as a standalone reference, see the `priority-sql-dbi` skill §2.
+
 DBI syntax reference:
 [https://prioritysoftware.github.io/sdk/DBI-Syntax](https://prioritysoftware.github.io/sdk/DBI-Syntax)
 
@@ -196,7 +198,7 @@ Rules:
   silently ignores duplicate-key inserts in this context.
 - The `UPDATE` must reference every expansion field being managed.
 
-For ENTMESSAGE used in trigger messages, see the `priority-sql-ref` skill §5.
+For ENTMESSAGE used in trigger messages, see the `priority-sql-ref` skill §4.
 
 ---
 
@@ -506,7 +508,7 @@ changes.
 To make `POST-FORM` fire unconditionally on exit regardless of changes,
 assign `:ACTIVATE_POST_FORM = 'Y'` in a `PRE-FORM` trigger.
 
-Cross-ref the `priority-sql-ref` skill §3 — *PRE-FORM automation* — for the
+Cross-ref the `priority-sql-ref` skill §2 — *PRE-FORM automation* — for the
 full list of related system variables (`:KEYSTROKES`, `:PREFORMQUERY`,
 `:ACTIVATE_POST_FORM`, etc.).
 
