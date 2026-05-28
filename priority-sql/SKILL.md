@@ -227,10 +227,10 @@ Prefer the keyword form (`GOSUB N`, `GOTO N`) — it reads as a flow instruction
 Use the variable form (`:GOTO = N`) when a single decision point needs to branch to many possible labels and writing repeated `GOTO N WHERE ...` lines would be noisy:
 ```sql
 /* Variable form — cleaner for multi-way dispatch */
-:GOTO = (  :TYPE = 'A' ? 10
-         : :TYPE = 'B' ? 20
-         : :TYPE = 'C' ? 30
-         : 99);
+:GOTO = (:TYPE = 'A' ? 10 :  
+/**/    (:TYPE = 'B' ? 20 :
+/**/    (:TYPE = 'C' ? 30 :
+/**/     99)));
 
 /* vs. the verbose keyword alternative */
 GOTO 10 WHERE :TYPE = 'A';
