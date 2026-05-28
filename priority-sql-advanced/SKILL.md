@@ -102,3 +102,63 @@ AND   LP.ELEMENT = PA.SON;
 
 UNLINK AND REMOVE STACK LEAFPARTS;
 ```
+
+---
+
+## 3. Abstract SUB pattern — deferred calculation via `#INCLUDE`
+
+Requires familiarity with `#INCLUDE` and buffers — see the `priority-sql-forms` skill §4.
+
+When shared trigger logic needs a value that is computed differently per
+form, and passing a pre-computed variable would be too complex, the
+calculation can be deferred to the including form via an **unimplemented
+SUB**. The shared trigger calls the SUB; each including form provides its
+own implementation after the `#INCLUDE` line.
+
+This is the Priority equivalent of an abstract method in OOP: the buffer
+defines the algorithm, and each caller supplies the missing piece.
+
+**Design rules:**
+- The shared trigger (`GOSUB N`) calls a SUB that it does **not** implement.
+- The buffer is defined in one form (e.g. `ORDERS`) and referenced via `#INCLUDE`.
+- Each including trigger appends its own `SUB N; ... RETURN;` block after the `#INCLUDE`.
+- The SUB number must not collide with any SUB already defined in the including trigger.
+
+**Example — display count of open documents on form open:**
+
+Buffer trigger `ORDERS/BUF1_PRIV` (the shared core):
+```sql
+GOSUB 1457;                                    /* get count — implemented by caller */
+SELECT ITOA(:OPEN_DOCS) INTO :PAR1 FROM DUMMY;
+WRNMSG 1458;
+```
+
+`ORDERS/PRE-FORM` (includes buffer, supplies ORDERS-specific count):
+```sql
+#INCLUDE ORDERS/BUF1_PRIV
+SUB 1457;
+SELECT COUNT(*) INTO :OPEN_DOCS
+FROM   ORDERS
+WHERE  CURDATE = SQL.DATE8
+AND    CLOSED <> 'C';
+RETURN;
+```
+
+`DOCUMENTS_T/PRE-FORM` (includes same buffer, supplies its own count):
+```sql
+#INCLUDE ORDERS/BUF1_PRIV
+SUB 1457;
+SELECT COUNT(*) INTO :OPEN_DOCS
+FROM   DOCUMENTS
+WHERE  TYPE    = 'T'
+AND    CURDATE = SQL.DATE8
+AND    FINAL   <> 'Y';
+RETURN;
+```
+
+**When to use this pattern:**
+- The shared logic is non-trivial and must not be duplicated.
+- The per-form input requires a query or multi-step calculation — not a
+  simple scalar that could be passed as a variable before the `#INCLUDE`.
+- If the input *can* be pre-computed trivially, set a variable before the
+  `#INCLUDE` instead; that is simpler and does not require an open SUB.

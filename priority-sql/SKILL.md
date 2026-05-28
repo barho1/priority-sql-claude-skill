@@ -6,13 +6,12 @@ description: >
   (STACK/STACK4/GENERALLOAD), EXECUTE INTERFACE, control flow
   (GOTO/GOSUB/LABEL/LOOP), message commands (ERRMSG/WRNMSG/GENMSG),
   return values (:RETVAL), variable scoping (:$., :$$., :$1., :GLOBAL.),
-  code style, #INCLUDE buffers, trigger naming/execution order, and procedures
-  (step types, INPUT vs INPUTF, processed report pattern, FILE parameters).
-  Use when writing or fixing Priority SQL trigger or procedure code, designing
-  cursor patterns, or asking why Priority SQL is failing. Context cues: ERRMSG,
-  GOSUB, LINK/UNLINK, SQL.TMPFILE, :$.FIELD, STACK table names. For complex
-  multi-level GENERALLOAD or pre-computation INSERT patterns, see the
-  `priority-sql-advanced` skill.
+  code style, and procedures (step types, INPUT vs INPUTF, processed report
+  pattern, FILE parameters). Use when writing or fixing Priority SQL trigger
+  or procedure code, designing cursor patterns, or asking why Priority SQL is
+  failing. Context cues: ERRMSG, GOSUB, LINK/UNLINK, SQL.TMPFILE, :$.FIELD,
+  STACK table names. For complex multi-level GENERALLOAD or pre-computation
+  INSERT patterns, see the `priority-sql-advanced` skill.
 ---
 
 # Priority ERP SQL
@@ -595,99 +594,7 @@ SUB 510;
 RETURN;
 ```
 
-#### `#INCLUDE` — sharing triggers across forms
-
-`#INCLUDE` pulls the entire contents of another trigger into the current
-one at compile time. Use it when the same logic must run in multiple
-forms or columns without being duplicated:
-
-```sql
-/* CHECK-FIELD for TYPE in LOGPART — reuse the PART form's trigger */
-#INCLUDE PART/TYPE/CHECK-FIELD
-```
-
-Syntax:
-- `#INCLUDE form_name/trigger_name` — for row/form triggers
-- `#INCLUDE form_name/column_name/trigger_name` — for column triggers
-
-The including trigger inherits all SQL statements *and* error/warning
-messages from the included trigger. Additional statements can be written
-before or after the `#INCLUDE` line. Any changes to the included trigger
-automatically affect all including triggers — check the *Use of Trigger*
-sub-level before modifying a shared trigger.
-
-**Buffers** are triggers that exist only to be included — they hold
-shared logic that no form activates directly. Numbered buffers (`BUF1`
-through `BUF19`) are predefined; named buffers follow the same naming
-rules as custom triggers. The conventional home for shared buffers is
-the `TRANSTRIG` form, a system form that exists purely to hold reusable
-trigger code.
-
-`#INCLUDE` can be nested — an included trigger may itself include
-another.
-
-**`SUB` vs `#INCLUDE`:** Use `SUB` for reuse *within* a single
-trigger (extract a repeated block into a subroutine). Use `#INCLUDE`
-for reuse *across* different forms or trigger positions (share logic
-between LOGPART and PART, or between multiple PRE-INSERT triggers).
-
-Ref: [Including One Trigger in Another](https://prioritysoftware.github.io/sdk/Include-Triggers)
-
-#### Abstract SUB pattern — deferred calculation via `#INCLUDE`
-
-When shared trigger logic needs a value that is computed differently per
-form, and passing a pre-computed variable would be too complex, the
-calculation can be deferred to the including form via an **unimplemented
-SUB**. The shared trigger calls the SUB; each including form provides its
-own implementation after the `#INCLUDE` line.
-
-This is the Priority equivalent of an abstract method in OOP: the buffer
-defines the algorithm, and each caller supplies the missing piece.
-
-**Design rules:**
-- The shared trigger (`GOSUB N`) calls a SUB that it does **not** implement.
-- The buffer is defined in one form (e.g. `ORDERS`) and referenced via `#INCLUDE`.
-- Each including trigger appends its own `SUB N; ... RETURN;` block after the `#INCLUDE`.
-- The SUB number must not collide with any SUB already defined in the including trigger.
-
-**Example — display count of open documents on form open:**
-
-Buffer trigger `ORDERS/BUF1_PRIV` (the shared core):
-```sql
-GOSUB 1457;                                    /* get count — implemented by caller */
-SELECT ITOA(:OPEN_DOCS) INTO :PAR1 FROM DUMMY;
-WRNMSG 1458;
-```
-
-`ORDERS/PRE-FORM` (includes buffer, supplies ORDERS-specific count):
-```sql
-#INCLUDE ORDERS/BUF1_PRIV
-SUB 1457;
-SELECT COUNT(*) INTO :OPEN_DOCS
-FROM   ORDERS
-WHERE  CURDATE = SQL.DATE8
-AND    CLOSED <> 'C';
-RETURN;
-```
-
-`DOCUMENTS_T/PRE-FORM` (includes same buffer, supplies its own count):
-```sql
-#INCLUDE ORDERS/BUF1_PRIV
-SUB 1457;
-SELECT COUNT(*) INTO :OPEN_DOCS
-FROM   DOCUMENTS
-WHERE  TYPE    = 'T'
-AND    CURDATE = SQL.DATE8
-AND    FINAL   <> 'Y';
-RETURN;
-```
-
-**When to use this pattern:**
-- The shared logic is non-trivial and must not be duplicated.
-- The per-form input requires a query or multi-step calculation — not a
-  simple scalar that could be passed as a variable before the `#INCLUDE`.
-- If the input *can* be pre-computed trivially, set a variable before the
-  `#INCLUDE` instead; that is simpler and does not require an open SUB.
+For sharing logic across forms with `#INCLUDE` and buffers, see the `priority-sql-forms` skill §4.
 
 ### Indentation
 Priority text forms reject lines that begin with whitespace (spaces or tabs). To indent continuation lines, start with a blank comment `/**/` followed by spaces:
@@ -718,46 +625,7 @@ This applies anywhere a logical continuation line would otherwise start with whi
 
 ---
 
-## 11. Trigger naming and execution order
-
-This section covers naming conventions and execution order for custom triggers.
-For the full trigger-type reference, activation rules, and per-trigger specifics, see the `priority-sql-forms` skill §3.
-
-### Execution order
-
-1. `CHECK-FIELD` fires before `POST-FIELD` for the same column.
-2. Built-in `CHECK-FIELD` triggers fire before user-designed ones.
-3. Built-in `POST-FIELD` triggers fire before user-designed ones.
-4. `PRE-` triggers fire before their corresponding `POST-` trigger.
-5. Among triggers of the same type, execution order is alphabetical — name
-   custom triggers accordingly (see naming conventions below).
-
-**If a `CHECK-FIELD` is discontinued** (via `ERRMSG` or `END`), all
-corresponding `POST-FIELD` triggers — both built-in and custom — are skipped.
-
-### Naming custom triggers
-
-- Must include the 4-letter customer identifier as a prefix or postfix.
-- Must contain the key string for the trigger type (e.g. `CHECK-`, `POST-`,
-  `-FIELD`, `-INSERT`, `-UPDATE`).
-- Only alphanumeric characters, underscores, and hyphens; must start with a letter.
-
-**Execution order and naming strategy:**
-
-The SDK states that custom triggers sort alphabetically relative to standard
-triggers. In practice this is unreliable — a custom trigger with an
-alphabetically early name has been observed firing before standard triggers
-regardless. Follow this convention:
-
-| Intent | Convention | Example |
-|--------|-----------|---------|
-| Fire after standard triggers (default) | Postfix the customer identifier | `CHECK-FIELD_PRIV` |
-| Fire before standard triggers | Prefix the customer identifier | `PRIV_CHECK-FIELD` |
-| Fire absolutely last | Add `_ZZZZ` suffix | `CHECK-FIELD_PRIV_ZZZZ` |
-
----
-
-## 12. Procedures
+## 11. Procedures
 
 A procedure is a sequence of named steps executed in order. The most
 common pattern in custom development is a **processed report**: user
