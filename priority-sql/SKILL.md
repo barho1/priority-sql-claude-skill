@@ -284,6 +284,9 @@ LABEL 1999; /* Handle empty cursor */
 
 ### Rules — never violate these
 
+**Always follow the canonical template exactly — do not invent variations.**
+Every cursor must use the structure: `DECLARE` → `OPEN` → `GOTO <empty-label>` → variable initialization → `LABEL <loop>` → `FETCH` → `GOTO <end-label>` → cursor body → `LOOP <loop>` → `LABEL <end>` → `CLOSE` → `LABEL <empty>`. Never reorder, merge, or omit any part of this skeleton. Label numbers change; the structure does not.
+
 **Never error on an empty cursor — always exit gracefully.**
 Use `GOTO` to skip past the cursor body. An error message may be appropriate *after* cleanup if the business logic requires it, but never as a direct response to an empty cursor.
 
