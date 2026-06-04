@@ -315,11 +315,11 @@ This rule applies to nested cursors too — each cursor has exactly one `LOOP` a
 
 ### Tracking previous-iteration values
 
-A cursor overwrites its variables on every `FETCH`. If you need to reference a value from the previous iteration (typically key fields to detect a group boundary or compare against the prior record), save them into `:prev_` prefixed variables at the **end** of the iteration body, just before `LOOP`.
+A cursor overwrites its variables on every `FETCH`. If you need to reference a value from the previous iteration (typically key fields to detect a group boundary or compare against the prior record), save them into tracking variables at the **end** of the iteration body, just before `LOOP`.
 
 Rules:
-- **Initialize `:prev_` variables explicitly** after `OPEN` succeeds and before `LABEL 1000`. Never assume they start at zero or empty.
-- **Handle the null/uninitialized case** at the top of the cursor body — on the first iteration the `:prev_` variable will hold its initialized default, which must be a value that cannot appear as a real key (e.g. `0` for integers, `''` or `'\0'` for strings).
+- **Initialize tracking variables explicitly** after `OPEN` succeeds and before `LABEL 1000`. Never assume they start at zero or empty.
+- **Handle the null/uninitialized case** at the top of the cursor body — on the first iteration the tracking variable will hold its initialized default, which must be a value that cannot appear as a real key (e.g. `0` for integers, `''` or `'\0'` for strings).
 - **Group initializations by type** on a single line for readability (see variable initialization conventions below).
 
 ```sql
@@ -385,20 +385,6 @@ Group variables of the same type onto a single assignment line for readability:
 **Date fields** are internally stored as integers (minutes since 01/01/88), so `0` is technically valid. However, always initialize them as `dd/mm/yy` literals — the engine then formats them as dates in messages and displays, rather than as a raw minute count, which makes debugging far easier.
 
 **Single-character fields** (`'\0'`) are distinct from empty strings (`''`). Use `'\0'` for CHAR(1) columns and flag fields.
-
-### Label numbering convention for nested cursors
-
-Always use distinct label ranges per nesting level. Reusing the same numbers across outer and inner cursors may work but makes code hard to follow and risks subtle bugs.
-
-| Level | Range | Typical labels |
-|-------|-------|----------------|
-| Outer cursor | 1xxx | 1000 loop, 1997 skip, 1998 close, 1999 empty |
-| Inner cursor | 2xxx | 2000 loop, 2997 skip, 2998 close, 2999 empty |
-| Inner-inner | 3xxx | 3000 loop, 3997 skip, 3998 close, 3999 empty |
-
-Use intermediate numbers (1002, 1005, etc.) freely for branching within a cursor body. The nesting depth is immediately readable from the label number alone.
-
-For cursor patterns inside pre-computation, see the `priority-sql-advanced` skill §2.
 
 ---
 
@@ -477,8 +463,6 @@ For multi-level GENERALLOAD with header + subform lines, see the `priority-sql-a
 SELECT SQL.TMPFILE INTO :GEN_TMP FROM DUMMY;
 LINK GENERALLOAD TO :GEN_TMP;
 GENMSG 1 WHERE :RETVAL <= 0;
-/* GENMSG (not ERRMSG) because this failure is infrastructure-level,
-   not specific to this form's business logic */
 
 /* 2. Populate GENERALLOAD */
 INSERT INTO GENERALLOAD (LINE, RECORDTYPE, TEXT1, TEXT2, ...)
@@ -509,7 +493,7 @@ ERRMSG 1 WHERE EXISTS (
 ```
 
 **Advanced** — structured per-line error capture via `STACK_ERR`:
-Only use when you need to programmatically read, store, or display individual error messages per line. Add the `-stackerr` switch and link `STACK_ERR` to a tmpfile before executing.
+Add the `-stackerr` switch and link `STACK_ERR` to a tmpfile before executing.
 Ref: [SDK Execute-FormLoads – Errors](https://prioritysoftware.github.io/sdk/Execute-FormLoads#dealing-with-errors-and-reloading) | [SDK STACKERR](https://prioritysoftware.github.io/sdk/STACKERR)
 
 **Anti-pattern** — do NOT use `LOADED <> 'Y'` as the primary error check:
@@ -615,13 +599,6 @@ This applies anywhere a logical continuation line would otherwise start with whi
 ### General
 - Align `INTO`, `FROM`, `WHERE`, `AND` vertically where it aids readability.
 - Use `/* ... */` comments, not `--` (Priority line comments are less portable).
-- Name SUB numbers to suggest their role — e.g. 500-series for lookups, 900-series for input steps — so the call site is self-documenting.
-- **Use `ENTMESSAGE` instead of string literals** for any user-visible text and for
-  non-trivial strings embedded in output (section headers, labels, SQL templates
-  with variable holes). This keeps Hebrew and other non-ASCII text out of trigger
-  code, makes strings translatable, and eliminates duplicate literals via DRY.
-  Only single-character flags (`'Y'`, `'\0'`), pure SQL punctuation, and strings
-  built entirely from variables belong inline. See the `priority-sql-ref` skill §4 for the full ENTMESSAGE reference.
 
 ---
 
