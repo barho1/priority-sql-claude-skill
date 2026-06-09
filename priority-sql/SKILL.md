@@ -6,12 +6,12 @@ description: >
   (STACK/STACK4/GENERALLOAD), EXECUTE INTERFACE, control flow
   (GOTO/GOSUB/LABEL/LOOP), message commands (ERRMSG/WRNMSG/GENMSG),
   return values (:RETVAL), variable scoping (:$., :$$., :$1., :GLOBAL.),
-  code style, and procedures (step types, INPUT vs INPUTF, processed report
-  pattern, FILE parameters). Use when writing or fixing Priority SQL trigger
-  or procedure code, designing cursor patterns, or asking why Priority SQL is
+  and code style. Use when writing or fixing Priority SQL trigger or
+  procedure code, designing cursor patterns, or asking why Priority SQL is
   failing. Context cues: ERRMSG, GOSUB, LINK/UNLINK, SQL.TMPFILE, :$.FIELD,
   STACK table names. For complex multi-level GENERALLOAD or pre-computation
-  INSERT patterns, see the `priority-sql-advanced` skill.
+  INSERT patterns, see the `priority-sql-advanced` skill. For procedure step
+  types and structure, see the `priority-sql-procedures` skill.
 ---
 
 # Priority ERP SQL
@@ -511,93 +511,3 @@ Group variables of the same type onto a single assignment line for readability:
 ### General
 - Align `INTO`, `FROM`, `WHERE`, `AND` vertically where it aids readability.
 - Use `/* ... */` comments, not `--` (Priority line comments are less portable).
-
----
-
-## 11. Procedures
-
-A procedure is a sequence of named steps executed in order. The most
-common pattern in custom development is a **processed report**: user
-input → data manipulation (SQLI) → report output.
-
-For trigger code used in procedure SQLI steps, see §1–§9 above. For
-form trigger context, see the `priority-sql-forms` skill §3.
-
-### Step types
-
-| Type | Code | Description |
-|------|------|-------------|
-| Basic command | B | `INPUT`/`INPUTF`, `END`, `GOTO`, `MESSAGE`, etc. |
-| SQLI program | C | Executes a block of Priority SQL |
-| Report | R | Runs a report step and displays output |
-| Form | F | Opens a form for user interaction |
-| Sub-procedure | P | Calls another procedure |
-| Form load interface | I | Runs a form load |
-| Table load | L | Imports external data |
-
-**Priority Web constraint:** Never use `EXECUTE WINFORM` or
-`EXECUTE WINACTIV` inside an SQLI step to open forms or run procedures
-that display UI — they run on the server, not the client. Add a
-separate step of type F or P instead.
-
-### Parameter types
-
-| Type | Usage |
-|------|-------|
-| `CHAR`, `INT`, `REAL`, `DATE` | Scalar value passed between steps |
-| `ASCII` | Text file (e.g. error message file for `PRINTERR`) |
-| `FILE` | Linked table of records — bidirectional between steps |
-| `LINE` | Single record from the database |
-| `NFILE` | Like FILE, but link table stays empty if user enters `*` |
-
-**Parameter name limit:** 3 characters maximum (e.g. `PRF`, `OUT`).
-
-### INPUT vs INPUTF
-
-`INPUT` — shows the parameter input screen only when run directly by
-the user. Suppressed when the procedure is called as an Action from a
-form.
-
-`INPUTF` — shows the input screen in both contexts. Prefer `INPUTF`
-for developer tools and any procedure where input is always required.
-
-### Processed report pattern
-
-The standard three-step structure for a procedure that generates a
-report from computed data:
-
-```
-Step 10  INPUTF     B   — collect user inputs
-Step 20  PROC_NAME  C   — validate, compute, populate linked table
-Step 30  RPT_NAME   R   — render the report
-```
-
-The procedure must have `R` in the *Rep/Wizard/Dashboard* column so
-it behaves like a report from the user's perspective (print/export
-options, standard report viewer).
-
-### Passing a linked table between SQLI and report steps
-
-Declare a `FILE` parameter (e.g. `OUT`, table = `STACK4`) on **both**
-the SQLI step and the report step, using the same parameter name. The
-system links the table to a temp file before the SQLI step runs; the
-SQLI step writes into it directly; the report step reads from the same
-linked file automatically.
-
-```
-Step 20 parameters:
-  OUT   FILE   STACK4   (populated by SQLI)
-
-Step 30 parameters:
-  OUT   FILE   STACK4   (consumed by report)
-```
-
-No `LINK`/`UNLINK` is needed in the SQLI code — the system manages the
-link lifecycle across steps. Position is not required for report-step
-parameters.
-
-Ref: [Procedures](https://prioritysoftware.github.io/sdk/Procedures)
-| [Procedure Steps](https://prioritysoftware.github.io/sdk/Procedure-Steps)
-| [Procedure Parameters](https://prioritysoftware.github.io/sdk/Procedure-Parameters)
-| [Processed Reports](https://prioritysoftware.github.io/sdk/Processed-Report)
-| [Priority Web](https://prioritysoftware.github.io/sdk/Priority-Web)
