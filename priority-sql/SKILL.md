@@ -107,6 +107,13 @@ Always set the default unconditionally first, then override it with `SELECT <val
 
 ---
 
+### Blank lines
+
+Priority rejects blank lines on save. Never insert empty lines between
+statements.
+
+---
+
 ## 2. Supported syntax worth knowing
 
 ### Ternary expression
@@ -475,11 +482,6 @@ AND    PROJLINK.KLINE   =
 ```
 
 This applies anywhere a logical continuation line would otherwise start with whitespace.
-
-### No blank lines
-
-Priority rejects blank lines on save. Never insert empty lines between
-statements.
 
 ### Variable initialization conventions
 
