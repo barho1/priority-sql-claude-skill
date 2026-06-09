@@ -476,6 +476,11 @@ AND    PROJLINK.KLINE   =
 
 This applies anywhere a logical continuation line would otherwise start with whitespace.
 
+### No blank lines
+
+Priority rejects blank lines on save. Never insert empty lines between
+statements.
+
 ### Variable initialization conventions
 
 Group variables of the same type onto a single assignment line for readability:
