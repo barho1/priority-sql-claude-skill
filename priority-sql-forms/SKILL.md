@@ -389,16 +389,13 @@ automatically whenever the form opens.
 
 **Execution order and naming strategy:**
 
-The SDK states that custom triggers sort alphabetically relative to standard
-triggers. In practice this is unreliable — a custom trigger with an
-alphabetically early name has been observed firing before standard triggers
-regardless. Follow this convention:
+Triggers of the same type fire in alphabetical order by name — standard and
+custom triggers alike, no exceptions. Name custom triggers accordingly. SDK
+example: to fire a custom trigger after a standard `POST-INSERT` trigger,
+name it `POST-INSERT_AXXX` (postfix) or `ZXXX_POST-INSERT` (prefix), where
+`XXX` is the customer prefix.
 
-| Intent | Convention | Example |
-|--------|-----------|---------|
-| Fire after standard triggers (default) | Postfix the customer identifier | `CHECK-FIELD_PRIV` |
-| Fire before standard triggers | Prefix the customer identifier | `PRIV_CHECK-FIELD` |
-| Fire absolutely last | Add `_ZZZZ` suffix | `CHECK-FIELD_PRIV_ZZZZ` |
+Ref: [Creating Your Own Triggers](https://prioritysoftware.github.io/sdk/Creating-your-Triggers)
 
 ---
 
@@ -410,9 +407,16 @@ versions.
 
 ---
 
+### Custom error message numbers
+
+Custom message numbers in forms must always be **> 500**.
+
+Ref: [Error and Warning Messages](https://prioritysoftware.github.io/sdk/Errors-and-Warnings)
+
+---
+
 ### CHECK-FIELD specifics
 
-- Error message numbers in `CHECK-FIELD` triggers must be **> 500**.
 - If a `CHECK-FIELD` is discontinued, its `POST-FIELD` triggers are skipped
   (see execution order above).
 

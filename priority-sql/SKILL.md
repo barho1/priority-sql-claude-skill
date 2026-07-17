@@ -295,7 +295,7 @@ this section documents all values in one place.
 | `UPDATE` | Number of updated records; 0 if none updated; –1 if no record meets WHERE | Selected records existed but none updated (unique key violation or insufficient privileges) |
 | `DELETE … WHERE CURRENT OF` | 1 on success; 0 on failure | Cursor not open; no more records |
 | `DELETE` | Number of deleted records; –1 if no record meets WHERE | — |
-| `LINK` | 1 on success; 0 on failure | File already linked; insufficient permissions |
+| `LINK` | 2 if a new file was created; 1 if linked to an existing file; 0 on failure | –1 if the table is already linked once (duplicate link attempt); insufficient permissions |
 
 **Key patterns derived from this table:**
 
@@ -319,6 +319,13 @@ ERRMSG 1 WHERE :RETVAL = 0;  /* rows matched but all rejected — error */
 /* RETVAL > 0 means N rows inserted — success */
 ```
 
+`LINK` return values also distinguish creation from reuse: `2` means a new
+temp file was created, `1` means it linked to a temp file that already
+existed (e.g. re-linking without `REMOVE`) — useful if code needs to branch
+on whether the file already has data. `–1` means the same table was already
+linked once (a duplicate link attempt), distinct from an outright failure
+(`0`); both still satisfy the `:RETVAL < 1` guard pattern used below.
+
 Ref: [Return Values and Statement Failure](https://prioritysoftware.github.io/sdk/RETVAL-Values#table-of-return-values-and-statement-failure)
 
 ---
@@ -326,6 +333,11 @@ Ref: [Return Values and Statement Failure](https://prioritysoftware.github.io/sd
 ## 8. Linked temp tables (STACK, STACK4, GENERALLOAD, etc.)
 
 Always pair every `LINK` with an `UNLINK`. Use `SQL.TMPFILE` as the file handle.
+
+Every `LINK` must be guarded — with `ERRMSG` or a `GOTO` past the section
+that uses the linked table. This isn't just a style habit: if a `LINK` fails
+and isn't guarded, the statements that follow execute against the real table
+instead of the intended temp copy, silently and with no error.
 
 ```sql
 SELECT SQL.TMPFILE INTO :MY_TMP FROM DUMMY;
@@ -338,6 +350,13 @@ UNLINK AND REMOVE STACK4 MYDATA;
 ```
 
 `UNLINK AND REMOVE` frees both the link and the temp file. Use plain `UNLINK` if you want to keep the file for re-linking later.
+
+`LINK ALL` is shorthand for `LINK` plus auto-populating every record from the
+source table into the newly linked temp table. Use it sparingly, if at all —
+prefer a scoped `INSERT ... SELECT ... WHERE` after a plain `LINK` so only
+the records actually needed get copied.
+
+Ref: [Link/Unlink](https://prioritysoftware.github.io/sdk/Link-Unlink)
 
 For multi-level GENERALLOAD with header + subform lines, see the `priority-sql-advanced` skill §1.
 
