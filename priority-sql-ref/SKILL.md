@@ -77,6 +77,22 @@ SELECT SQL.GUID    INTO :GUID FROM DUMMY;     /* random UUID */
 
 Ref: [SQL Functions and Variables](https://prioritysoftware.github.io/sdk/SQL-Functions-Variables)
 
+#### Lightweight pseudo-random from `SQL.GUID`
+
+The official random-number mechanism is `PRANDOM`, which costs a temp file, a
+`LINK STACK4` and a read back out of `DETAILS`. When the value is not
+cryptographic and that boilerplate is not worth it, derive one inline instead —
+`SQL.GUID` is 32 hex characters, so `HTOI` of any two of them gives 0..255:
+
+```sql
+SELECT SQL.GUID INTO :GUID FROM DUMMY;
+:N = (HTOI(SUBSTR(:GUID, 1, 2)) MOD :RANGE) + :BASE;
+```
+
+Good for stubs, sampling and cheap one-off picks. Reach for `PRANDOM` when the
+official mechanism is required, or when a wider or better-distributed value
+matters — 256 values with `MOD` is neither uniform nor large.
+
 ---
 
 ### System variables
