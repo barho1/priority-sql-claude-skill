@@ -233,12 +233,19 @@ GOTO 1 WHERE EXISTS
 ERRMSG 3 WHERE EXISTS
 (SELECT 'X' FROM ACTALT WHERE ACT = :$.ALT);
 ```
-Prefer the `FROM` shorthand when checking existence against a single table —
-it's shorter and matches the style used throughout Priority's core forms
-(e.g. ACTALT/BUF1, ACTALT/BUF2). Fall back to the verbose
-`WHERE EXISTS (SELECT ...)` form for multi-table joins or when the
-condition needs to combine an EXISTS check with other boolean logic that
-doesn't cleanly fit a single `FROM ... WHERE`.
+The `FROM` clause isn't limited to a single table — it works exactly like
+the `FROM` of a `SELECT`, so multiple tables and joins (via standard
+`WHERE` join syntax) are supported:
+```sql
+GOTO 1 FROM ACTALT A, ACTUSERS U
+WHERE A.ACT = U.ACT AND U.USER = SQL.USER;
+```
+Prefer the `FROM` shorthand when checking existence against one or more
+tables — it's shorter and matches the style used throughout Priority's
+core forms (e.g. ACTALT/BUF1, ACTALT/BUF2). Fall back to the verbose
+`WHERE EXISTS (SELECT ...)` form only when the condition needs to combine
+an EXISTS check with other boolean logic that doesn't cleanly fit a single
+`FROM ... WHERE`.
 
 ### GOSUB / SUB / RETURN
 `GOSUB N` calls the subroutine declared with `SUB N;`. Every `SUB` block **must** contain a `RETURN` statement.
