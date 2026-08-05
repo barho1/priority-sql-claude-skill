@@ -216,6 +216,30 @@ GOTO 100 WHERE :RETVAL < 1;     /* jump to LABEL 100 if condition is met */
 LOOP 200 WHERE :MORE = 'Y';     /* jump back to LABEL 200 if condition is met */
 ```
 
+### GOTO / ERRMSG / WRNMSG with FROM — shorthand for EXISTS
+`GOTO`, `ERRMSG`, and `WRNMSG` all support a `FROM table WHERE condition`
+form directly on the command — not just a plain `WHERE condition`. This is
+shorthand for `WHERE EXISTS (SELECT 'X' FROM table WHERE condition)`, and
+appears extensively in Priority's own shipped code (not just documented in
+the public SDK's Flow Control page, which only shows the plain WHERE form).
+```sql
+/* Shorthand */
+GOTO 1 FROM CONSTANTS WHERE NAME = 'DELETERPART' AND VALUE = 0;
+ERRMSG 3 FROM ACTALT WHERE ACT = :$.ALT;
+
+/* Equivalent verbose form */
+GOTO 1 WHERE EXISTS
+(SELECT 'X' FROM CONSTANTS WHERE NAME = 'DELETERPART' AND VALUE = 0);
+ERRMSG 3 WHERE EXISTS
+(SELECT 'X' FROM ACTALT WHERE ACT = :$.ALT);
+```
+Prefer the `FROM` shorthand when checking existence against a single table —
+it's shorter and matches the style used throughout Priority's core forms
+(e.g. ACTALT/BUF1, ACTALT/BUF2). Fall back to the verbose
+`WHERE EXISTS (SELECT ...)` form for multi-table joins or when the
+condition needs to combine an EXISTS check with other boolean logic that
+doesn't cleanly fit a single `FROM ... WHERE`.
+
 ### GOSUB / SUB / RETURN
 `GOSUB N` calls the subroutine declared with `SUB N;`. Every `SUB` block **must** contain a `RETURN` statement.
 ```sql
@@ -261,6 +285,10 @@ All three accept a `WHERE` clause:
 ERRMSG 1 WHERE :RETVAL < 1;
 WRNMSG 5 WHERE :QTY > :STOCK;
 ```
+
+`ERRMSG` and `WRNMSG` also accept the `FROM table WHERE condition` shorthand
+for an EXISTS check — see "GOTO / ERRMSG / WRNMSG with FROM — shorthand for
+EXISTS" in section 4.
 
 Use `ERRMSG` for form/procedure-specific messages. Use `GENMSG` for reusable system-wide messages (e.g. in shared interfaces). Use `WRNMSG` when the user should be able to override the warning and proceed.
 
