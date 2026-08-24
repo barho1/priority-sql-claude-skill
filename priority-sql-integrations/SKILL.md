@@ -11,6 +11,10 @@ description: >
 
 # Priority ERP — External Integrations
 
+This skill covers traffic *out* of Priority. For traffic *in* — an external
+system reading or writing Priority data over HTTP — see the `priority-rest-api`
+skill.
+
 ---
 
 ## 1. WSCLIENT — HTTP requests to external web services

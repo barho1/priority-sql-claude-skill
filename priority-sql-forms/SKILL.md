@@ -210,7 +210,9 @@ When writing triggers or business rules it is often necessary to know:
 - what columns a form has (names, types, join info)
 - what subforms hang off it
 
-Use the **EFORM** endpoint with `$expand` to retrieve this in one call.
+Use the **EFORM** endpoint with `$expand` to retrieve this in one call. For the
+REST/OData API itself — authentication, query options, writing data, `$batch` —
+see the `priority-rest-api` skill.
 
 ### Connection details (demo environment)
 

@@ -34,7 +34,7 @@ Always prefer the live web SDK over any PDF version — the web version is curre
 - [STACKERR](https://prioritysoftware.github.io/sdk/STACKERR)
 - [DBI syntax (CREATE TABLE, FOR TABLE INSERT)](https://prioritysoftware.github.io/sdk/DBI-Syntax) — see `priority-sql-dbi` for the full reference
 - [Accessing related forms / dynamic zoom](https://prioritysoftware.github.io/sdk/Accessing-Related-Form)
-- [REST API – modifying related entities](https://prioritysoftware.github.io/restapi/modify/#Inserting_a_Related_Entity)
+- [REST API – modifying related entities](https://prioritysoftware.github.io/restapi/modify/#Inserting_a_Related_Entity) — see `priority-rest-api` for the full REST/OData reference
 
 ---
 
