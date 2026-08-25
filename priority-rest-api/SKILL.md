@@ -13,8 +13,8 @@ description: >
   querying or loading Priority data over HTTP, or debugging an OData request.
   Context cues: serviceRoot, odata/Priority, _SUBFORM, $expand, $filter,
   $batch, InterfaceErrors, 429. For calling *out* from Priority SQL to an
-  external service, see `priority-sql-integrations` (WSCLIENT). For form and
-  column metadata via EFORM, see `priority-sql-forms`.
+  external service (WSCLIENT), and for form and column metadata via EFORM, see
+  the `priority-sql` skill.
 ---
 
 # Priority ERP — REST / OData API
@@ -23,7 +23,7 @@ Ref: [REST API documentation](https://prioritysoftware.github.io/restapi/)
 
 **Direction matters.** This skill covers traffic *into* Priority. For traffic
 *out* — Priority SQL calling an external web service — use `WSCLIENT`, see the
-`priority-sql-integrations` skill.
+`priority-sql` skill.
 
 The API is a thin wrapper around Priority **forms**, not around tables. Every
 request runs the form's triggers, validations and business rules, exactly as if
@@ -55,7 +55,7 @@ https://www.eshbelsaas.com/ui/odata/Priority/tabmob.ini/usdemo
 The administrator can output the correct service root with the **Send Program
 Activation Link** program. `GET serviceRoot/` lists every exposed entity set
 plus the `$metadata` link. Demo-environment credentials are in the
-`priority-sql-forms` skill §2.
+`priority-sql` skill (form metadata reference).
 
 ### Request / response format
 
@@ -75,7 +75,7 @@ below). `400`, `404` and `500` behave conventionally.
 
 `$top` cannot exceed the system cap: **`MAXAPILINES`** (25.1+, default 2,000
 records), or **`MAXFORMLINES`** before 25.1. Raising it hurts performance —
-paginate with `$top`/`$skip` instead (`references/query-options.md`). A query
+paginate with `$top`/`$skip` instead. A query
 returning a suspiciously round row count has hit the cap.
 
 ### Timezone caveat (21.0+, potentially breaking)
@@ -148,8 +148,7 @@ Consequences worth stating explicitly:
   the `ORD` table. A column on the table but not on the form is unreachable —
   add it to the form first.
 - Every write executes the form's triggers, so business logic, defaults and
-  validations all apply, and errors surface as trigger messages
-  (`references/errors-and-debugging.md`).
+  validations all apply, and errors surface as trigger messages.
 - Subforms are reached by navigation, not by joining.
 
 Property types are `Edm.String` (`"A string"`), `Edm.Int64` (`42`),

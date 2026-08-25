@@ -46,7 +46,7 @@ Cloud.
 
 For form *design* questions — which columns are hidden, read-only, calculated
 or joined, and which subforms hang off a form — query `EFORM` rather than
-`$metadata` (see the `priority-sql-forms` skill §2):
+`$metadata` (see the form metadata reference in the `priority-sql` skill):
 
 ```
 GET serviceRoot/EFORM(ENAME='ORDERS',TYPE='F')?$expand=FCLMN_SUBFORM,FLINK_SUBFORM

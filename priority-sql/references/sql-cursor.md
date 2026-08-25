@@ -1,14 +1,3 @@
----
-name: priority-sql-cursor
-description: >
-  Priority ERP SQL cursor loop pattern — canonical DECLARE/OPEN/FETCH/CLOSE
-  template, hard rules (never violate the structure), skip-iteration pattern
-  (GOTO to a label above LOOP), and prev-iteration tracking for group
-  boundaries. Use whenever writing, reviewing, or debugging a Priority cursor
-  loop, or any time DECLARE CURSOR, OPEN, FETCH, LOOP, or CLOSE appears in
-  the code.
----
-
 # Cursor loop pattern
 
 Use when you need to iterate over a result set and perform per-row logic (e.g. UPDATE with a computed value per row).

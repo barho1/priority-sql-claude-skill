@@ -1,21 +1,9 @@
----
-name: priority-sql-integrations
-description: >
-  Priority ERP external integrations — WSCLIENT for making HTTP/HTTPS requests
-  to external web services and REST APIs (GET, POST, PATCH, PUT, DELETE, custom
-  headers with -head2, Bearer token auth, OAuth2 via -authname, Basic auth,
-  response capture, error handling via ERRMSGS). Use when writing Priority SQL
-  that calls external APIs, sends HTTP requests, or processes web service
-  responses. Structured for future extension with XMLPARSE and SFTPCLNT.
----
-
 # Priority ERP — External Integrations
 
 This skill covers traffic *out* of Priority. For traffic *in* — an external
 system reading or writing Priority data over HTTP — see the `priority-rest-api`
 skill.
 
----
 
 ## 1. WSCLIENT — HTTP requests to external web services
 
@@ -23,7 +11,6 @@ Ref: [WSCLIENT - Work with Web Services](https://prioritysoftware.github.io/sdk/
 
 `WSCLIENT` is Priority's built-in HTTP client. It reads a request body from a file, sends it to an endpoint, and writes the response to another file. All I/O is file-based.
 
----
 
 ### Full syntax
 
@@ -45,7 +32,6 @@ EXECUTE WSCLIENT :endpoint_url, :inFile, :outFile
   [, '-urlfile', :urlFile];               /* use when URL > 127 chars           */
 ```
 
----
 
 ### Parameters
 
@@ -66,7 +52,6 @@ EXECUTE WSCLIENT :endpoint_url, :inFile, :outFile
 | `'-urlfile', :urlFile` | No | When URL > 127 chars, put the full URL in an ASCII file and pass `''` as `:endpoint_url` |
 | `'-tag'`/`'-val'` | No | Extract a named XML tag from the response. `-tag` includes the tag; `-val` returns the inner content only |
 
----
 
 ### Error handling
 
@@ -82,7 +67,6 @@ WHERE USER = SQL.USER AND TYPE = 'w';
 ERRMSG 500 WHERE :ERRMSG <> '';
 ```
 
----
 
 ### REST JSON example — POST with Bearer token
 
@@ -109,7 +93,6 @@ EXECUTE WSCLIENT :URL, :INFILE, :OUTFILE,
 EXECUTE XMLPARSE :OUTFILE ...;
 ```
 
----
 
 ### GET request
 
@@ -126,7 +109,6 @@ EXECUTE WSCLIENT :URL, :INFILE, :OUTFILE,
   '-method', 'GET';
 ```
 
----
 
 ### URL longer than 127 characters
 
@@ -143,7 +125,6 @@ EXECUTE WSCLIENT '', :INFILE, :OUTFILE,
   '-urlfile', :URLFILE;
 ```
 
----
 
 ### Multiple headers with `-head2`
 
@@ -157,7 +138,6 @@ EXECUTE WSCLIENT :URL, :INFILE, :OUTFILE,
   '-method', 'POST';
 ```
 
----
 
 ### OAuth2
 
@@ -172,7 +152,6 @@ EXECUTE WSCLIENT :URL, :INFILE, :OUTFILE,
 
 Priority automatically refreshes the access token when needed.
 
----
 
 ### Notes
 
