@@ -38,6 +38,7 @@ wait to load a reference file to check.
 
 | Never | Instead |
 |-------|---------|
+| `DECLARE :var TYPE(width)` for a plain variable | Nothing — Priority variables need no declaration at all. Just assign: `:VAR = value;`. (`DECLARE` exists only for `DECLARE CURSOR`, an unrelated statement) |
 | `ISNULL` / `COALESCE` | Initialize the variable to its default *before* the SELECT; a no-row `SELECT INTO` leaves it unchanged |
 | `\|\|` for concatenation | `STRCAT(a, b, c, …)` |
 | Subquery inside `UPDATE … SET` | `SELECT … INTO :var` first, then `UPDATE … SET COL = :var` |

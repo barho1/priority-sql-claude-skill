@@ -100,6 +100,12 @@ SELECT STRINDEX('hello world', 'o', 1)  FROM DUMMY; /* 5 */
 SELECT from a real table. Prefer `SUBSTR` / `RSUBSTR` in all contexts —
 they are identical but safe everywhere.
 
+**`STRIND` is not `STRINDEX` despite the name.** `STRIND(string, m, n)`
+*extracts* n characters at position m — it is a position-based accessor, the
+same operation as `SUBSTR`. It does not search for anything. To find *where*
+a character or substring occurs, use `STRINDEX(full, search, index)` (see
+above), never `STRIND`.
+
 | Function | Syntax | Returns | Notes |
 |----------|--------|---------|-------|
 | `STRCAT` | `STRCAT(s1, s2, ...)` | CHAR | Concatenates strings (result max 127 chars) — `\|\|` is not valid in Priority |
