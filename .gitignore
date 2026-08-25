@@ -1,9 +1,8 @@
 # Local MCP server config — absolute paths are machine-specific
 .mcp.json
 
-# Packaged skills for upload
-*.skill
-*.zip
+# Packaged skills for upload (built by package.sh / package-all.sh)
+release/
 
 # Scratch files from Priority's VS Code extension
 sqli-*.pq

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Zip a skill directory into <skill-name>.skill for upload to Claude Desktop.
+# Zip a skill directory into release/<skill-name>.skill for upload to Claude
+# Desktop or a GitHub release.
 # Usage: ./package.sh <skill-dir>
 set -euo pipefail
 
@@ -12,7 +13,8 @@ if [ ! -f "$skill_dir/SKILL.md" ]; then
   exit 1
 fi
 
-out="${skill_name}.skill"
+mkdir -p release
+out="release/${skill_name}.skill"
 rm -f "$out"
 
 if command -v zip >/dev/null 2>&1; then
