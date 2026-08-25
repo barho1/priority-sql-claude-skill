@@ -6,7 +6,8 @@ that ends in a "now configure this in the Form Generator" comment has not
 finished the job; the whole form is loadable.
 
 Ground EFORM before writing (`priority_get_entity_fields EFORM`, or the REST
-endpoint in §2) — the field set is what you are populating.
+endpoint described in the form metadata reference) — the field set is what you
+are populating.
 
 **Header (EFORM):**
 
@@ -55,8 +56,8 @@ keys are the real field `NAME`s. See the standard
 `ERRMSGS` check that follows `EXECUTE INTERFACE`.
 
 Alternatives: REST/OData record creation for a live system, or a predefined
-`GENERALLOAD` interface if one already exists — see multi-level GENERALLOAD
-skill §1 for building that hierarchy.
+`GENERALLOAD` interface if one already exists — see the advanced patterns
+reference for building that hierarchy.
 
 ### Design rules
 

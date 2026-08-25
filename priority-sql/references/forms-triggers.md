@@ -25,6 +25,14 @@ Ref: [Form Triggers](https://prioritysoftware.github.io/sdk/Form-Triggers)
 | **Form** | `PRE-FORM` | Before the form opens | Initialize variables, auto-retrieve records, set privileges |
 | **Form** | `POST-FORM` | On form exit (see note) | Update parent form values based on sub-level changes |
 
+**Avoid `ERRMSG` in `POST-` row triggers.** It does **not** roll back the
+record — the save already happened — but the UI will not let the user leave
+the record while the error stands, and unlike a `PRE-` row trigger there is no
+undo escape route. The user is trapped with a saved record and an error they
+cannot clear. Validate in a `PRE-` trigger where the save can still be
+stopped, or in a `POST-` trigger set a status field and use `WRNMSG` so the
+user can acknowledge and move on.
+
 ---
 
 ### Execution order
@@ -102,7 +110,7 @@ the changed column has its own validation logic.
 
 ### CHOOSE-FIELD variants
 
-See §1 for the full column creation workflow. The trigger itself supports
+See the CHOOSE-FIELD picklist reference for the full column creation workflow. The trigger itself supports
 several forms:
 
 **Standard SQL query** — first column is the display description (max 64

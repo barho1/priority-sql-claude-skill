@@ -6,7 +6,6 @@ Priority text lines are 68 characters long. Break long lines to stay within this
 ```sql
 /* WRONG — line too long */
 INSERT INTO GENERALLOAD (LINE, RECORDTYPE, TEXT1, TEXT2, TEXT3, TEXT4, TEXT5)
-
 /* CORRECT — break after the opening paren, before a column name */
 INSERT INTO GENERALLOAD (LINE, RECORDTYPE,
                          TEXT1, TEXT2, TEXT3,
@@ -36,7 +35,6 @@ or any character at the start of a comment continuation line.
 /* WRONG — leading spaces will be trimmed on save */
 GOTO 14922 WHERE :$.ARNO_QREPDECNAME = :$1.ARNO_QREPDECNAME
              AND :$.ARNY_MRBDECNAME = :$1.ARNY_MRBDECNAME ;
-
 /* CORRECT — /**/ anchors the continuation line */
 GOTO 14922 WHERE :$.ARNO_QREPDECNAME = :$1.ARNO_QREPDECNAME
 /**/ AND :$.ARNY_MRBDECNAME = :$1.ARNY_MRBDECNAME ;
@@ -56,15 +54,12 @@ GOSUB 500 WHERE :NEEDS_LOOKUP = 'Y';
 ...
 LABEL 9999;
 END;
-
 /*===============================================================*/
 /*                        SUBROUTINES                            */
 /*===============================================================*/
-
 SUB 500;
 /* ... */
 RETURN;
-
 SUB 510;
 /* ... */
 RETURN;
@@ -78,7 +73,6 @@ Priority text forms reject lines that begin with whitespace (spaces or tabs). To
 ```sql
 INSERT INTO GENERALLOAD (LINE, RECORDTYPE,
 /**/                     TEXT1, TEXT2, TEXT3);
-
 SELECT PROJ INTO :ARNT_PROJ
 FROM   PROJLINK, STATUSTYPES
 WHERE  PROJLINK.IV      = :NSCUST
@@ -95,16 +89,12 @@ Group variables of the same type onto a single assignment line for readability:
 ```sql
 /* Strings */
 :PARTNAME = :CUSTNAME = :WARHSNAME = '';
-
 /* Integers */
 :PART = :CUST = :WARHS = 0;
-
 /* Real / decimal */
 :PRICE = 0.0;
-
 /* Dates — initialize as dd/mm/yy, not as 0 */
 :CURDATE = :OPENDATE = 01/01/88;
-
 /* Single-character flags */
 :INVFLAG = :TYPE = '\0';
 ```

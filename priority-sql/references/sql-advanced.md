@@ -22,33 +22,41 @@ relying on the value itself.
 SELECT SQL.TMPFILE INTO :GEN_TMP FROM DUMMY;
 LINK GENERALLOAD TO :GEN_TMP;
 GENMSG 1 WHERE :RETVAL <= 0;
-
 :LINE = 0;
-
 /* Record type '1' — order header */
 :LINE = :LINE + 1;
 INSERT INTO GENERALLOAD (LINE, RECORDTYPE, TEXT1, TEXT2)
 VALUES (:LINE, '1', :ORDNAME, :CUSTNAME);
-
-LABEL 2000;
-FETCH Items_Cursor INTO :PARTNAME, :QTY;
-GOTO 2998 WHERE :RETVAL <= 0;
-
+DECLARE Items_Cursor CURSOR FOR
+SELECT PARTNAME, QUANT
+FROM   MY_STGORDITEMS
+WHERE  ORDNAME = :ORDNAME;
+OPEN Items_Cursor;
+GOTO 2999 WHERE :RETVAL <= 0; /* Cursor never opened */
+:PARTNAME = '';
+:QUANT = 0.0;
+LABEL 2000; /* Cursor loop */
+FETCH Items_Cursor INTO :PARTNAME, :QUANT;
+GOTO 2998 WHERE :RETVAL <= 0; /* No more rows */
 /* Record type '2' — order line item */
 :LINE = :LINE + 1;
 INSERT INTO GENERALLOAD (LINE, RECORDTYPE, TEXT1, REAL1)
-VALUES (:LINE, '2', :PARTNAME, :QTY);
+VALUES (:LINE, '2', :PARTNAME, :QUANT);
 LOOP 2000;
-
-LABEL 2998;
-EXECUTE INTERFACE 'ORDERS', SQL.TMPFILE, '-L', :GEN_TMP;
-
+LABEL 2998; /* Close cursor */
+CLOSE Items_Cursor;
+LABEL 2999; /* Cursor never opened — do not close */
+EXECUTE INTERFACE 'LOADNAME', SQL.TMPFILE, '-L', :GEN_TMP;
 ERRMSG 1 WHERE EXISTS (
     SELECT 1 FROM ERRMSGS WHERE USER = SQL.USER AND TYPE = 'i'
 );
-
 UNLINK GENERALLOAD;
 ```
+
+`'LOADNAME'` stands in for the actual form-load interface — see *Finding
+which interface to use* in the temp-table reference. It is **not** the form
+name: `GENERALLOAD` loads go through a regular interface, and dynamic
+interfaces (which are named for what they load) work only with XML and JSON.
 
 Key rules:
 - LINE must be strictly incrementing across all record types — it
@@ -73,10 +81,8 @@ ERRMSG 1 WHERE :RETVAL < 1;
 INSERT INTO STACK LEAFPARTS
 SELECT DISTINCT SON FROM PARTARC PA, PART P
 WHERE PA.PART = :ROOT AND PA.SON = P.PART AND (P.TYPE = 'R' OR P.TURNKEY = 'Y');
-
 /* Step B: pre-compute lookup values via cursor (if correlated logic needed) */
 /* ... cursor loop, SELECT INTO per row ... */
-
 /* Step C: clean INSERT joining the pre-computed tables */
 INSERT INTO STACK4 RESULT (KEY, INTDATA, CHARDATA)
 SELECT PA.SONACT,
@@ -86,7 +92,6 @@ FROM PARTARC PA, STACK4 PARENTMAP PM, STACK LEAFPARTS LP
 WHERE PA.PART  = :ROOT
 AND   PM.KEY   = PA.SONACT
 AND   LP.ELEMENT = PA.SON;
-
 UNLINK AND REMOVE STACK LEAFPARTS;
 ```
 

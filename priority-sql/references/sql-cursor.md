@@ -40,12 +40,9 @@ Never `LOOP` from the middle of the cursor body. If an iteration has nothing lef
 LABEL 1000;
 FETCH Cursor_Name INTO :KEY, :VAL;
 GOTO 1998 WHERE :RETVAL <= 0;
-
 GOTO 1997 WHERE :VAL = 0; /* skip this iteration */
-
 /* main logic */
 UPDATE SOMETABLE SET X = :VAL WHERE KEY = :KEY;
-
 LABEL 1997; /* skip-to point — above LOOP */
 LOOP 1000;
 LABEL 1998;
@@ -62,40 +59,33 @@ A cursor overwrites its variables on every `FETCH`. If you need to reference a v
 Rules:
 - **Initialize tracking variables explicitly** after `OPEN` succeeds and before `LABEL 1000`. Never assume they start at zero or empty.
 - **Handle the null/uninitialized case** at the top of the cursor body — on the first iteration the tracking variable will hold its initialized default, which must be a value that cannot appear as a real key (e.g. `0` for integers, `''` or `'\0'` for strings).
-- **Group initializations by type** on a single line for readability (see variable initialization conventions in `priority-sql` §10).
+- **Group initializations by type** on a single line for readability (see variable initialization conventions in the code style reference).
 
 ```sql
 DECLARE Cur CURSOR FOR
-SELECT PARTNAME, QTY FROM ORDERITEMS WHERE ...;
+SELECT PARTNAME, QUANT FROM ORDERITEMS WHERE ...;
 OPEN Cur;
 GOTO 1999 WHERE :RETVAL <= 0;
-
 /* Initialize cursor variables and prev sentinels */
 :PARTNAME      = '';
 :QTY           = 0;
 :prev_PARTNAME = '';
 :QTY_TOTAL     = 0;
-
 LABEL 1000;
 FETCH Cur INTO :PARTNAME, :QTY;
 GOTO 1998 WHERE :RETVAL <= 0;
-
 /* First iteration or new group */
 GOTO 1005 WHERE :prev_PARTNAME = '';
 GOTO 1005 WHERE :prev_PARTNAME <> :PARTNAME;
-
 /* Same group — accumulate */
 :QTY_TOTAL = :QTY_TOTAL + :QTY;
 GOTO 1997;
-
 LABEL 1005; /* Group boundary */
 /* ... process completed group for :prev_PARTNAME ... */
 :QTY_TOTAL = :QTY; /* Reset for new group */
-
 LABEL 1997;
 :prev_PARTNAME = :PARTNAME; /* Save for next iteration */
 LOOP 1000;
-
 LABEL 1998;
 /* Process final group */
 /* ... */

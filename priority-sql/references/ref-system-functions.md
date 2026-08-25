@@ -145,7 +145,6 @@ actions in form triggers.
 ```sql
 /* Retrieve all records automatically when the form opens */
 :KEYSTROKES = '{Exit}';
-
 /* Filter by date, then execute */
 :KEYSTROKES = '{Key Right} 01/01/06 {Exit}';
 ```

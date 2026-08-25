@@ -17,7 +17,6 @@ the public SDK's Flow Control page, which only shows the plain WHERE form).
 /* Shorthand */
 GOTO 1 FROM CONSTANTS WHERE NAME = 'DELETERPART' AND VALUE = 0;
 ERRMSG 3 FROM ACTALT WHERE ACT = :$.ALT;
-
 /* Equivalent verbose form */
 GOTO 1 WHERE EXISTS
 (SELECT 'X' FROM CONSTANTS WHERE NAME = 'DELETERPART' AND VALUE = 0);
@@ -42,7 +41,6 @@ an EXISTS check with other boolean logic that doesn't cleanly fit a single
 `GOSUB N` calls the subroutine declared with `SUB N;`. Every `SUB` block **must** contain a `RETURN` statement.
 ```sql
 GOSUB 500 WHERE :PRICE > 100;   /* call SUB 500 only if condition is met */
-
 SUB 500;
 /* ... subroutine body ... */
 RETURN;
@@ -60,7 +58,6 @@ Use the variable form (`:GOTO = N`) when a single decision point needs to branch
 /**/    (:TYPE = 'B' ? 20 :
 /**/    (:TYPE = 'C' ? 30 :
 /**/     99)));
-
 /* vs. the verbose keyword alternative */
 GOTO 10 WHERE :TYPE = 'A';
 GOTO 20 WHERE :TYPE = 'B';

@@ -43,9 +43,8 @@ for expression evaluation.
 /* Assign a computed value to a variable */
 SELECT SQL.TMPFILE INTO :TMP FROM DUMMY;
 SELECT STRCAT(:PREFIX, '_', :SUFFIX) INTO :FULLNAME FROM DUMMY;
-
 /* ENTMESSAGE must always run against DUMMY */
-:MSG = ENTMESSAGE('$', 'P', 10);
+SELECT ENTMESSAGE('$', 'P', 10) INTO :MSG FROM DUMMY;
 /* equivalent explicit form: */
 SELECT ENTMESSAGE('$', 'P', 10) INTO :MSG FROM DUMMY;
 ```
@@ -103,14 +102,13 @@ WHERE PARTNAME LIKE 'A\%'   /* matches the literal string "A%" */
 
 **Hard rule — a `LIKE` expression must stay on a single line.**
 Unlike other WHERE clauses, which are normally broken across lines for
-the 68-character limit (§10), a `LIKE '...'` clause itself must never
+the 68-character limit (see the code style reference), a `LIKE '...'` clause itself must never
 be split — don't let a line break fall between the column, `LIKE`, and
 its pattern string.
 ```sql
 /* WRONG — LIKE split across lines */
 WHERE (PARTNAME LIKE '%' OR PART.PARTDES
 LIKE '%' OR EPARTDES LIKE '%')
-
 /* CORRECT — each LIKE clause stays on one line; break elsewhere */
 WHERE (PARTNAME LIKE '%' OR PART.PARTDES LIKE '%'
 OR EPARTDES LIKE '%')

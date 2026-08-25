@@ -64,9 +64,32 @@ Check for errors after the call:
 :ERRMSG = '';
 SELECT MESSAGE INTO :ERRMSG FROM ERRMSGS
 WHERE USER = SQL.USER AND TYPE = 'w';
-ERRMSG 500 WHERE :ERRMSG <> '';
+ERRMSG 501 WHERE :ERRMSG <> '';
 ```
 
+
+### Writing the request body to a file
+
+All WSCLIENT I/O is file-based, so the request body must be written to a file
+first. The mechanism is `ASCII` output redirection on a `SELECT ... FROM DUMMY`
+— **not** `DBLOAD`, which is a table-load command that reads files rather than
+writing them.
+
+```sql
+SELECT SQL.TMPFILE INTO :BODY FROM DUMMY;
+SELECT 'first line'  FROM DUMMY ASCII :BODY;        /* write (replaces)  */
+SELECT 'second line' FROM DUMMY ASCII ADDTO :BODY;  /* append            */
+```
+
+`ASCII :file` writes, `ASCII ADDTO :file` appends. Successive `ADDTO`
+statements are how you build a body larger than a single CHAR variable —
+relevant because `STRCAT` results cap at 127 characters, so a JSON payload of
+any size must be accumulated across several statements rather than
+concatenated into one variable.
+
+Ref: [WSCLIENT - Work with Web Services](https://prioritysoftware.github.io/sdk/WSCLIENT)
+
+---
 
 ### REST JSON example — POST with Bearer token
 
@@ -75,23 +98,52 @@ ERRMSG 500 WHERE :ERRMSG <> '';
 :METHOD   = 'POST';
 :CONTENT  = 'application/json';
 :AUTH_HDR = STRCAT('Authorization: Bearer ', :TOKEN);
-
 /* Write the JSON body to a temp file */
 SELECT SQL.TMPFILE INTO :INFILE FROM DUMMY;
-EXECUTE DBLOAD :INFILE USING '{"orderId": 123}';
-
+SELECT '{"orderId": 123}' FROM DUMMY ASCII :INFILE;
 SELECT SQL.TMPFILE INTO :OUTFILE FROM DUMMY;
 SELECT SQL.TMPFILE INTO :MSGFILE FROM DUMMY;
-
 EXECUTE WSCLIENT :URL, :INFILE, :OUTFILE,
   '-msg',     :MSGFILE,
   '-head2',   :AUTH_HDR,
   '-content', :CONTENT,
   '-method',  :METHOD;
-
-/* Parse response */
-EXECUTE XMLPARSE :OUTFILE ...;
+/* Parse the response */
+SELECT SQL.TMPFILE INTO :TAGS FROM DUMMY;
+LINK INTERFXMLTAGS TO :TAGS;
+EXECUTE XMLPARSE :OUTFILE, :TAGS, 0, :MSGFILE, '', 'Y';
+SELECT VALUE INTO :ORDERID FROM INTERFXMLTAGS WHERE TAG = 'orderId';
+UNLINK INTERFXMLTAGS;
 ```
+
+---
+
+### Parsing the response
+
+`EXECUTE XMLPARSE` reads a response file and writes every tag it finds into a
+linked `INTERFXMLTAGS` table, which you then query with ordinary SQL.
+
+```sql
+EXECUTE XMLPARSE :xmlFile, :linkFile, 0, :msgFile [, '-all'] [, :json];
+```
+
+| Argument | Notes |
+|----------|-------|
+| `:xmlFile` | The response file written by WSCLIENT (`:outFile`) |
+| `:linkFile` | Temp file linked to `INTERFXMLTAGS`, where parsed tags land |
+| `0` | Required positional argument |
+| `:msgFile` | File for parse error messages |
+| `'-all'` | Optional. Parse *every* instance of a tag; without it, only the first |
+| `:json` | Pass `'Y'` to parse **JSON** instead of XML — note it occupies the 6th position, so pass `''` for `'-all'` when you only want JSON |
+
+Results are read from `INTERFXMLTAGS` by its `LINE`, `TAG`, `VALUE` and `ATTR`
+columns. Link it to a temp file before the call and unlink it after, exactly as
+with any other linked temp table.
+
+From **23.1** a single tag can hold up to 45,000 characters; before that the
+limit was 1,023.
+
+Ref: [XMLPARSE](https://prioritysoftware.github.io/sdk/XMLPARSE)
 
 
 ### GET request
@@ -101,9 +153,7 @@ For GET requests, the `inFile` is required by the syntax but the body is ignored
 ```sql
 SELECT SQL.TMPFILE INTO :INFILE  FROM DUMMY;
 SELECT SQL.TMPFILE INTO :OUTFILE FROM DUMMY;
-
 :URL = 'https://api.example.com/items/42';
-
 EXECUTE WSCLIENT :URL, :INFILE, :OUTFILE,
   '-head2',  'Authorization: Bearer mytoken',
   '-method', 'GET';
@@ -115,11 +165,9 @@ EXECUTE WSCLIENT :URL, :INFILE, :OUTFILE,
 ```sql
 /* Write the full URL to a file */
 SELECT SQL.TMPFILE INTO :URLFILE FROM DUMMY;
-EXECUTE DBLOAD :URLFILE USING :FULL_URL;
-
+SELECT :FULL_URL FROM DUMMY ASCII :URLFILE;
 SELECT SQL.TMPFILE INTO :INFILE  FROM DUMMY;
 SELECT SQL.TMPFILE INTO :OUTFILE FROM DUMMY;
-
 EXECUTE WSCLIENT '', :INFILE, :OUTFILE,
   '-method',  'GET',
   '-urlfile', :URLFILE;
@@ -131,7 +179,6 @@ EXECUTE WSCLIENT '', :INFILE, :OUTFILE,
 ```sql
 :HDR1 = 'Authorization: Bearer mytoken';
 :HDR2 = 'X-Custom-Header: myvalue';
-
 EXECUTE WSCLIENT :URL, :INFILE, :OUTFILE,
   '-head2', :HDR1,
   '-head2', :HDR2,
@@ -156,5 +203,5 @@ Priority automatically refreshes the access token when needed.
 ### Notes
 
 - Debug logging: when the server log is at DEBUG level, both the request sent and the response received are written to the log.
-- Response parsing: use `EXECUTE XMLPARSE` to extract values from XML or JSON response files. See §SDK reference for XMLPARSE.
+- Response parsing: use `EXECUTE XMLPARSE` — see *Parsing the response* above.
 - WSCLIENT **cannot** be used for SFTP — use `SFTPCLNT` instead.

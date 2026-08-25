@@ -23,8 +23,10 @@ this, so verify against the target system.
 
 ## Filtering on dates — the classic trap
 
-Spaces become `%20` and `+` must become `%2B`. Because a year always starts
-with `20`, an under-encoded space silently merges into the date:
+Spaces become `%20` and `+` must become `%2B`. The classic failure is writing
+`%20` immediately before a year: the escape and the year's leading `20` blur
+together, and `%202018` gets mistyped as `%2018` — which parses as the space
+plus `18`, silently shifting the date by two millennia:
 
 ```
 WRONG:   ?$filter=STATUSDATE%20ge%2018-02-23T09:59:00+02:00     /* "ge 18-02-23" */

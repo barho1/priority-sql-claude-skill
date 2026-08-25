@@ -58,6 +58,18 @@ wait to load a reference file to check.
 | Inline conditional assignment (`:v = X WHERE …`) | Set the default unconditionally, then `SELECT X INTO :v FROM DUMMY WHERE <cond>` |
 | Blank lines between statements | Priority rejects them on save — never insert them |
 
+**There is no NULL in Priority.** Every column holds a value; "empty" is a
+type-specific sentinel, which is why `ISNULL`/`COALESCE` have nothing to
+operate on and why the initialize-then-SELECT idiom is complete rather than a
+partial workaround.
+
+| Type | Empty value |
+|------|-------------|
+| Single character | `'\0'` |
+| String | `''` |
+| Integer | `0` |
+| Real | `0.0` |
+
 **Direction matters for integrations.** Traffic *out* of Priority — calling
 someone else's web service — is `WSCLIENT`, covered here. Traffic *into*
 Priority over HTTP is the REST/OData API, a separate skill
@@ -71,6 +83,12 @@ Load the relevant file with the Read tool when the request needs that detail —
 don't load them speculatively. These files and their names are internal
 navigation aids for you, not something to mention to the user — answer with
 the content itself, never by citing a reference file's path or name.
+
+Rows compose: a question that spans two areas needs both files. "Charge a card
+when an order is saved" is a trigger question *and* an outbound-HTTP question;
+"load documents from a staging table" is a temp-table question *and* a cursor
+question. Load what the question actually spans, not just the first row that
+matches.
 
 ### Procedural SQL (SQLI)
 
@@ -88,8 +106,8 @@ the content itself, never by citing a reference file's path or name.
 
 | File | Load when the request involves… |
 |------|----------------------------------|
-| `references/forms-triggers.md` | Any trigger type (`CHECK-FIELD`, `POST-FIELD`, `PRE-INSERT`, `POST-UPDATE`, `PRE-FORM`…), trigger execution order, trigger naming |
-| `references/forms-choose-field.md` | `CHOOSE-FIELD` picklists, `MCHOOSE`, `AND STOP`, `NO SORT`, building a values table for a picklist |
+| `references/forms-triggers.md` | Any trigger type (`CHECK-FIELD`, `POST-FIELD`, `PRE-INSERT`, `POST-UPDATE`, `PRE-FORM`…), trigger execution order, trigger naming, and the `CHOOSE-FIELD` variants (`MCHOOSE-FIELD`, `AND STOP`, `NO SORT`, union) |
+| `references/forms-choose-field.md` | Creating a picklist end to end — the values table, the FK column, the form, and the buffer trigger for expansion tables |
 | `references/forms-metadata.md` | `EFORM` queries, `FCLMN_SUBFORM`, `FLINK_SUBFORM`, which columns are hidden/read-only/calculated, exploring form structure |
 | `references/forms-eform-create.md` | Creating a form programmatically by loading into `EFORM` |
 | `references/forms-include-buffers.md` | `#INCLUDE`, buffer triggers, sharing logic between triggers |
@@ -109,4 +127,4 @@ the content itself, never by citing a reference file's path or name.
 
 | File | Load when the request involves… |
 |------|----------------------------------|
-| `references/wsclient.md` | Calling an external service *from* Priority SQL — `WSCLIENT`, request/response files, `-head2`, `-authname`, OAuth2, `ERRMSGS` error checking |
+| `references/wsclient.md` | Calling an external service *from* Priority SQL — `WSCLIENT`, writing the request body to a file (`ASCII` / `ASCII ADDTO`), `-head2`, `-authname`, OAuth2, `ERRMSGS` error checking, and parsing the response with `XMLPARSE` (XML or JSON) |

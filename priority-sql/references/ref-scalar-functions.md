@@ -55,7 +55,7 @@ SELECT HTOI('2f4')     FROM DUMMY; /* 756  */
 
 | Function | Syntax | Returns | Notes |
 |----------|--------|---------|-------|
-| `ITOA` | `ITOA(m)` or `ITOA(m, n)` | CHAR | INT to string; n = minimum width (zero-padded) |
+| `ITOA` | `ITOA(m)` or `ITOA(m, n)` | CHAR | INT to string; n = minimum width (zero-padded). A value needing more digits than `n` is returned in full — `ITOA(1234567, 6)` gives `'1234567'`, never truncated |
 | `ATOI` | `ATOI(string)` | INT | String to INT (max 10 characters) |
 | `ATOR` | `ATOR(string)` | REAL | String to REAL (max 14 characters) |
 | `RTOA` | `RTOA(m, n)` or `RTOA(m, n, USECOMMA)` | CHAR | REAL to string with n decimal places; `USECOMMA` adds thousands separator |
@@ -171,13 +171,23 @@ than a raw number.
 
 **Day difference between two dates:**
 ```sql
-:DIFF_DAYS = (ROUND(:DATE2) - ROUND(:DATE1)) / 24:00;
+:DATE1 = SQL.DATE;
+:DATE2 = 23/08/26 15:00;
+SELECT 0+(:DATE1 - :DATE2) / 24:00
+FROM DUMMY FORMAT;
 ```
 
-`ROUND()` strips the time component (rounds to the nearest day boundary),
-ensuring the difference counts whole days rather than including partial-day
-offsets. Use `SQL.DATE8` instead of `SQL.DATE` when you need today's date
-without a time component.
+**Stripping the time component:**
+```sql
+:DATEONLY = :DATE - :DATE MOD 24:00;
+```
+
+`:DATE MOD 24:00` yields the time component, so subtracting it leaves the date
+at midnight. **Do not use `ROUND` for this** — dates are integers (minutes
+since 01/01/88), so rounding one to the nearest integer does nothing.
+
+Use `SQL.DATE8` instead of `SQL.DATE` when you need today's date without a
+time component in the first place.
 
 ---
 
@@ -224,7 +234,7 @@ See the supported SQL syntax reference for DTOA in variable initialization, and 
 
 | Function | Syntax | Returns | Notes |
 |----------|--------|---------|-------|
-| `ENTMESSAGE` | `ENTMESSAGE(entity, type, num)` | CHAR | Returns numbered message text with `<P1>`–`<P3>` placeholders expanded. See §4 in this skill for full reference |
+| `ENTMESSAGE` | `ENTMESSAGE(entity, type, num)` | CHAR | Returns numbered message text with `<P1>`–`<P3>` placeholders expanded. See the ENTMESSAGE reference for full details |
 | `SYSPATH` | `SYSPATH(folder, output_type)` | CHAR | Path to a system folder. `folder`: `BIN`, `PREP`, `LOAD`, `MAIL`, `SYS`, `TMP`, `SYNC`, `IMAGE`. `output_type`: `1` = relative, `0` = absolute |
 | `NEWATTACH` | `NEWATTACH(filename, extension)` | CHAR | Creates a unique path in the system mail folder. Extension optional but recommended (include the dot, e.g. `'.zip'`). Handles naming conflicts automatically |
 

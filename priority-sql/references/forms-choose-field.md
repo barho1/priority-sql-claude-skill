@@ -109,8 +109,9 @@ ORDER BY 3, 1
 
 Ref: [CHOOSE-FIELD for form](https://prioritysoftware.github.io/sdk/Creating-your-Triggers.html#CHOOSE-FIELD-(for-form))
 
-**PRE-FORM trigger** — auto-populates the picklist when the user enters
-the form directly (standard convenience pattern):
+**PRE-FORM trigger** — retrieves all records when the user enters the form
+directly (standard convenience pattern). `*` is a wildcard query and `{Exit}`
+executes it:
 
 ```sql
 :KEYSTROKES = '*{Exit}';
@@ -158,16 +159,13 @@ Ref: [Using Buffers](https://prioritysoftware.github.io/sdk/Include-Triggers.htm
 ```sql
 /* Skip if no tracked fields changed */
 GOTO 9999 WHERE :$.PRIV_FNCCLASS = :$1.PRIV_FNCCLASS;
-
 /* Ensure expansion-table row exists */
 INSERT INTO PRIV_PART (PART)
 VALUES (:$.PART);
-
 /* Write all changed expansion fields */
 UPDATE PRIV_PART
 SET    PRIV_FNCCLASS = :$.PRIV_FNCCLASS
 WHERE  PART = :$.PART;
-
 LABEL 9999;
 ```
 
@@ -175,8 +173,12 @@ Rules:
 - `:$1.FIELD` is the **old** (pre-change) value; `:$.FIELD` is the new value.
 - The `GOTO 9999` guard must list every field managed by this trigger — add
   `AND :$.FIELD2 = :$1.FIELD2 ...` for each additional expansion column.
-- The `INSERT` is safe to run even when the row already exists — Priority
-  silently ignores duplicate-key inserts in this context.
+- The `INSERT` is safe to run even when the row already exists — but not
+  because Priority skips it. The `INSERT` **fails** on the duplicate key and
+  sets `:RETVAL = 0`; a failed statement does not halt the trigger, so
+  execution carries on to the `UPDATE`. It works by tolerated failure, not by
+  upsert semantics. Do not add a `:RETVAL` check after this `INSERT` — it
+  would fire on every row that already exists, which is the normal case.
 - The `UPDATE` must reference every expansion field being managed.
 
 For ENTMESSAGE used in trigger messages, see the ENTMESSAGE reference.

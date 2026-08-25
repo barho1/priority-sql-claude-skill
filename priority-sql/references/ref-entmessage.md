@@ -59,7 +59,6 @@ Build the tail of the message into `:PAR3` first, then fetch the head:
 ```sql
 /* MSG 60: "Order <P1> dated <P2> cannot be closed: <P3>" */
 /* MSG 61: "balance <P1> exceeds the approved limit <P2>" */
-
 :PAR1 = ITOA(:$.BALANCE, 0);
 :PAR2 = ITOA(:$.LIMIT, 0);
 :PAR3 = ENTMESSAGE('ORDERS', 'F', 61);  /* tail → :PAR3 */
@@ -73,14 +72,11 @@ Build the tail of the message into `:PAR3` first, then fetch the head:
 ```sql
 /* Procedure — '$' alias */
 :HEADER = ENTMESSAGE('$', 'P', 10);
-
 /* Form trigger — full name required */
 :LABEL = ENTMESSAGE('LOGPART', 'F', 5);
-
 /* Parameterised */
 :PAR1 = :$.PARTNAME;
 :MSG  = ENTMESSAGE('ORDERS', 'F', 140);
-
 /* As a STRCAT argument — fetch first */
 :PREFIX = ENTMESSAGE('$', 'P', 30);
 :TXT = STRCAT(:PREFIX, ': ', :SOMEVALUE);
