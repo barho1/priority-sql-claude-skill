@@ -1,629 +1,130 @@
 ---
 name: priority-sql
 description: >
-  Write, review, and debug Priority ERP procedural SQL — unsupported syntax
-  (ISNULL, ||, subquery in SET, UPDATE...FROM), cursor loops, temp tables
-  (STACK/STACK4/GENERALLOAD), EXECUTE INTERFACE, control flow
-  (GOTO/GOSUB/LABEL/LOOP), message commands (ERRMSG/WRNMSG/GENMSG),
-  return values (:RETVAL), variable scoping (:$., :$$., :$1., :GLOBAL.),
-  and code style. Use when writing or fixing Priority SQL trigger or
-  procedure code, designing cursor patterns, or asking why Priority SQL is
-  failing. Context cues: ERRMSG, GOSUB, LINK/UNLINK, SQL.TMPFILE, :$.FIELD,
-  STACK table names. For complex multi-level GENERALLOAD or pre-computation
-  INSERT patterns, see the `priority-sql-advanced` skill. For procedure step
-  types and structure, see the `priority-sql-procedures` skill.
+  Priority ERP development — procedural SQL (SQLI), form triggers, procedures,
+  DBI schema, and outbound integrations. Covers unsupported SQL syntax
+  (ISNULL, ||, subquery in SET, UPDATE...FROM), cursor loops
+  (DECLARE/OPEN/FETCH/LOOP/CLOSE, skip-iteration, prev-row tracking), temp
+  tables (STACK/STACK4/GENERALLOAD), EXECUTE INTERFACE and multi-level
+  document loading, control flow (GOTO/GOSUB/LABEL), message commands
+  (ERRMSG/WRNMSG/GENMSG/ENTMESSAGE), return values (:RETVAL), variable
+  scoping (:$., :$$., :$1., :GLOBAL.), code style; form triggers of every
+  type (CHECK-FIELD, POST-FIELD, CHOOSE-FIELD, SEARCH-FIELD,
+  PRE/POST-INSERT, PRE/POST-UPDATE, PRE/POST-DELETE, PRE/POST-FORM), trigger
+  execution order, CHOOSE-FIELD picklists, #INCLUDE and buffers, EFORM form
+  creation and metadata; procedure step types (B/C/R/F/P/I/L), parameter
+  types and processed reports; DBI DDL (CREATE TABLE, FOR TABLE INSERT,
+  column types, UNIQUE/NONUNIQUE indexes, expansion tables); scalar and
+  system functions (STRCAT, ITOA, ATOI, SUBSTR, STRPIECE, date functions,
+  SQL.TMPFILE, SQL.USER, SQL.DATE, SQL.GUID) and system variables
+  (:SCRLINE, :PAR1-3, :FORM_INTERFACE, :PREFORMQUERY); and WSCLIENT for
+  calling external web services out of Priority. Use for any Priority ERP
+  development task — writing or debugging SQL, designing triggers or
+  procedures, creating tables or forms, or looking up a function or
+  variable. Context cues: ERRMSG, GOSUB, LINK/UNLINK, SQL.TMPFILE,
+  :$.FIELD, STACK, CURSOR, CHOOSE-FIELD, EFORM, CREATE TABLE, WSCLIENT.
+  For the REST/OData API *into* Priority, see the `priority-rest-api` skill.
 ---
 
-# Priority ERP SQL
+# Priority ERP Development
 
-Priority uses a proprietary procedural SQL dialect. It resembles T-SQL superficially but has significant differences. Always apply these rules — Priority code that looks "standard" may silently fail or produce wrong results if standard SQL assumptions are carried over.
+Priority uses a proprietary procedural SQL dialect. It resembles T-SQL
+superficially but differs significantly — code that looks "standard" may
+silently fail or produce wrong results if standard SQL assumptions carry over.
 
-## Language philosophy
-
-Priority's SQL is intentionally imperative. Where standard SQL lets you describe *what* you want in a single set-based statement, Priority requires you to describe *how* — one scalar at a time. Most patterns in this skill exist because of that constraint: missing language features (no COALESCE, no subquery in SET, no UPDATE...FROM) are compensated by pre-computing into a variable, then acting on it. Once you internalize this, the code becomes predictable: every non-trivial expression resolves to a `SELECT ... FROM DUMMY` assignment; every per-row operation becomes a cursor loop; every shared logic becomes a buffer with `#INCLUDE`.
-
-The grain of the language is: **pre-compute, then act. Flow via labels, not nesting. Defer form-specific logic to the caller.**
-
-Working with that grain produces verbose but readable code — every step is explicit and traceable. Fighting it (trying to compress logic into a single statement) usually produces something that fails silently or is difficult to debug.
-
----
-
-## 1. Unsupported syntax (never use these)
-
-### `ISNULL` / `COALESCE`
-Not valid. Do not use.
-
-**Pattern to replace it:**
-Initialize the variable to its default *before* the SELECT. If the SELECT finds no row, the variable is left unchanged.
-```sql
-:MY_VAR = 0;   /* default */
-SELECT SOMEVALUE INTO :MY_VAR FROM SOMETABLE WHERE KEY = :KEY;
-/* :MY_VAR is now either the found value or still 0 */
-```
-This is a guaranteed behavior in Priority: a SELECT INTO that finds no rows does not alter the target variable.
-
----
-
-### `||` string concatenation
-Not valid. Use `STRCAT(a, b, c, ...)` instead.
-```sql
-/* WRONG */
-:RESULT = :PREFIX || :SUFFIX;
-
-/* CORRECT */
-:RESULT = STRCAT(:PREFIX, :SUFFIX);
-```
-Ref: [SDK Scalar Expressions – String manipulation](https://prioritysoftware.github.io/sdk/Scalar-Expressions#string-manipulation)
+**The grain of the language: pre-compute, then act. Flow via labels, not
+nesting. Defer form-specific logic to the caller.** Missing features (no
+COALESCE, no subquery in SET, no `UPDATE...FROM`) are compensated by
+pre-computing into a variable, then acting on it. Every non-trivial expression
+resolves to a `SELECT ... FROM DUMMY` assignment; every per-row operation
+becomes a cursor loop; every shared logic becomes a buffer with `#INCLUDE`.
+Fighting that grain usually produces code that fails silently or is hard to
+debug.
 
 ---
 
-### Subquery in `UPDATE ... SET`
-Not valid. Priority rejects subqueries inside SET.
-```sql
-/* WRONG */
-UPDATE MYTABLE SET COST = (SELECT SUM(X) FROM OTHERTABLE WHERE ...);
+## Hard rules — never violate these
 
-/* CORRECT — compute first, then update */
-:COMPUTED_COST = 0.0;
-SELECT SUM(X) INTO :COMPUTED_COST FROM OTHERTABLE WHERE ...;
-UPDATE MYTABLE SET COST = :COMPUTED_COST WHERE ...;
-```
-For multi-row updates where the value differs per row, use a cursor loop (see §6).
+These apply to all Priority SQL. Never emit code that breaks them, and never
+wait to load a reference file to check.
 
----
-
-### `UPDATE ... FROM` join syntax
-Not valid. Priority does not support multi-table UPDATE. The SET value must always be a pre-computed scalar variable.
-
----
-
-### Correlated subquery in `SELECT` list of `INSERT ... SELECT`
-Not valid.
-```sql
-/* WRONG */
-INSERT INTO STACK4 T (KEY, INTDATA)
-SELECT A.SONACT,
-       (SELECT MAX(B.SONACT) FROM PARTARC B WHERE B.SON = A.SON AND ...)
-FROM PARTARC A WHERE ...;
-```
-**Pattern to replace it:** Use a cursor loop — iterate over the outer set and do a separate SELECT INTO per row.
-
----
-
-### Conditional variable assignment — `:var = <value> WHERE ...`
-
-Not valid. Priority does not support inline conditional assignment.
-
-```sql
-/* WRONG */
-:arno_use_mrb = 1 WHERE :$.ARNY_MRBDECNAME <> '' ;
-
-/* CORRECT */
-:arno_use_mrb = 0 ;                                            /* default */
-SELECT 1 INTO :arno_use_mrb FROM DUMMY WHERE :$.ARNY_MRBDECNAME <> '' ;
-```
-
-Always set the default unconditionally first, then override it with `SELECT <value> INTO :var FROM DUMMY WHERE <condition>`. If the condition is false, the SELECT finds no row and the variable retains its default — consistent with Priority's no-row SELECT behavior (see `ISNULL / COALESCE` above).
-
----
-
-### Blank lines
-
-Priority rejects blank lines on save. Never insert empty lines between
-statements.
-
----
-
-## 2. Supported syntax worth knowing
-
-### Ternary expression
-```sql
-(condition ? value_if_true : value_if_false)
-```
-This is Priority's equivalent of `CASE WHEN ... THEN ... ELSE ... END` or `IIF(...)`.
-- Conditions use `=`, `<>`, `AND`, `OR` keywords.
-- Can be nested: `(A = 'Y' ? 'X' : (B = 'Y' ? 'Y' : 'Z'))`
-- Works in SELECT lists, WHERE clauses, and variable assignments.
-- Does **not** use `||` or `&&` for boolean operators — use `AND` / `OR`.
-
-### `STRCAT(arg1, arg2, ...)` — string concatenation
-```sql
-:DOCNO = STRCAT(:PREFIX, ITOA(:NUM, :WIDTH));
-```
-
-### `ITOA(int)` / `ITOA(int, width)` — integer to string
-```sql
-KEY1 = ITOA(:PART_ID)           /* no padding */
-KEY1 = ITOA(:NUM, 6)            /* zero-padded to width 6 */
-```
-Required when storing an integer value into a string column (e.g. KEY1/KEY2 in GENERALLOAD).
-
-### `DTOA(date, format)` — date to string
-```sql
-:YEAR = DTOA(0 + :DATE, 'YY');
-```
-
-### `STRLEN(str)`, `SUBSTR(str, start, len)`, `STRIND(str, sub, start)`
-Standard string functions available in Priority.
-
-### The `DUMMY` table
-
-`DUMMY` is a special single-record, single-column table used whenever a
-`SELECT` is needed to evaluate an expression or assign a variable
-without reading from a real table. Unlike querying even a small real
-table, `SELECT ... FROM DUMMY` does not access the table at all — the
-engine short-circuits it entirely, making it the fastest possible source
-for expression evaluation.
-
-```sql
-/* Assign a computed value to a variable */
-SELECT SQL.TMPFILE INTO :TMP FROM DUMMY;
-SELECT STRCAT(:PREFIX, '_', :SUFFIX) INTO :FULLNAME FROM DUMMY;
-
-/* ENTMESSAGE must always run against DUMMY */
-:MSG = ENTMESSAGE('$', 'P', 10);
-/* equivalent explicit form: */
-SELECT ENTMESSAGE('$', 'P', 10) INTO :MSG FROM DUMMY;
-```
-
-Always use `DUMMY` (rather than a real table) when the query result
-depends only on variables or scalar functions — it is both semantically
-clearer and faster.
-
-Ref: [SQL Variables — The DUMMY Table](https://prioritysoftware.github.io/sdk/SQL-Variables#the-dummy-table)
-
-### `LIKE` — extended patterns, the single-line rule, and no variables
-
-Priority extends standard `LIKE` wildcards and adds constraints not
-present in standard SQL.
-
-**Hard rule — the pattern must be a constant string; it cannot embed
-a variable.**
-```sql
-/* WRONG — variable interpolated inside the LIKE pattern */
-SELECT FLD_A FROM TBL WHERE FLD_B LIKE '%:varname%';
-```
-A colon-prefixed name inside single quotes is not substituted — quotes
-suppress variable expansion — so this either fails outright or silently
-matches the literal text `:varname` instead of the variable's value.
-There is no way to parameterize a `LIKE` pattern with a runtime value.
-**Pattern to replace it:** for a "contains" check against a runtime
-value, use `STRIND(:FIELD, :SUBSTR, 1) > 0` (or `SUBSTR`/`STRLEN`
-comparisons for prefix/suffix checks) instead of `LIKE`.
-```sql
-/* CORRECT — runtime substring check without LIKE */
-SELECT FLD_A FROM TBL WHERE STRIND(FLD_B, :SUBSTR, 1) > 0;
-```
-
-**Wildcards:**
-- `_` — matches a single character
-- `%` — matches any number of characters (including zero)
-
-**Character brackets `|...|`** — enclose a set or range of characters
-to match any one of them:
-```sql
-WHERE PARTNAME LIKE '|A-D|%'   /* starts with A, B, C, or D */
-```
-
-**Negation `\^`** inside brackets — match any character *other than*
-those listed:
-```sql
-WHERE PARTNAME LIKE '|\^A-D|%'  /* does NOT start with A-D */
-```
-
-**Escaping a wildcard/bracket character** — prefix it with `\` to
-match it literally:
-```sql
-WHERE PARTNAME LIKE 'A\%'   /* matches the literal string "A%" */
-```
-
-**Hard rule — a `LIKE` expression must stay on a single line.**
-Unlike other WHERE clauses, which are normally broken across lines for
-the 68-character limit (§10), a `LIKE '...'` clause itself must never
-be split — don't let a line break fall between the column, `LIKE`, and
-its pattern string.
-```sql
-/* WRONG — LIKE split across lines */
-WHERE (PARTNAME LIKE '%' OR PART.PARTDES
-LIKE '%' OR EPARTDES LIKE '%')
-
-/* CORRECT — each LIKE clause stays on one line; break elsewhere */
-WHERE (PARTNAME LIKE '%' OR PART.PARTDES LIKE '%'
-OR EPARTDES LIKE '%')
-```
-
-Ref: [SDK Additions to Standard SQL Commands](https://prioritysoftware.github.io/sdk/Additions-to-SQL-Commands)
-
----
-
-## 3. Variable scoping
-
-Three types of variables — no block-level isolation within a form context:
-
-| Type | Syntax | Scope |
-|------|--------|-------|
-| Form field | `:$.COLNAME` or `:FORMNAME.COLNAME` | Current form row. Subforms use `:$$.COL`, `:$$$.COL` etc. |
-| Local variable | `:varname` | Visible across all triggers in the form and all subforms. Internally namespaced as `:_company.varname`. |
-| Global variable | `:GLOBAL.varname` | Spans all companies in multi-company contexts. |
-
-**`:FIELDNAME` (colon-prefix on a form field) in an UPDATE trigger** returns the value *before* the current change. Use this in PRE-UPDATE checks to inspect the old value.
-```sql
-/* Block editing a row that already had a price, OR a row that now has a price */
-ERRMSG 1 WHERE :QPRICE > 0 OR QPRICE > 0;
-/*              ^^^^^^^^^^       ^^^^^^^^  */
-/*              old value        new value */
-```
-
-**`:$1.FIELDNAME`** — the pre-change value of a form field, used in
-buffer triggers and POST-UPDATE triggers to compare the new value
-(`:$.FIELDNAME`) against the previous one. This is the standard pattern
-for detecting whether a specific field actually changed:
-
-```sql
-/* Skip if the FK column wasn't modified */
-GOTO 9999 WHERE :$.PRIV_FNCCLASS = :$1.PRIV_FNCCLASS;
-```
-
-When multiple fields are tracked by the same buffer trigger, chain the
-conditions with `AND` — only skip if *all* tracked fields are unchanged.
-
----
-
-## 4. Control flow — GOTO, GOSUB, LOOP, LABEL
-
-### LABEL / GOTO / LOOP
-All three accept an optional `WHERE` clause — execution only jumps if the condition is true.
-```sql
-GOTO 100 WHERE :RETVAL < 1;     /* jump to LABEL 100 if condition is met */
-LOOP 200 WHERE :MORE = 'Y';     /* jump back to LABEL 200 if condition is met */
-```
-
-### GOTO / ERRMSG / WRNMSG with FROM — shorthand for EXISTS
-`GOTO`, `ERRMSG`, and `WRNMSG` all support a `FROM table WHERE condition`
-form directly on the command — not just a plain `WHERE condition`. This is
-shorthand for `WHERE EXISTS (SELECT 'X' FROM table WHERE condition)`, and
-appears extensively in Priority's own shipped code (not just documented in
-the public SDK's Flow Control page, which only shows the plain WHERE form).
-```sql
-/* Shorthand */
-GOTO 1 FROM CONSTANTS WHERE NAME = 'DELETERPART' AND VALUE = 0;
-ERRMSG 3 FROM ACTALT WHERE ACT = :$.ALT;
-
-/* Equivalent verbose form */
-GOTO 1 WHERE EXISTS
-(SELECT 'X' FROM CONSTANTS WHERE NAME = 'DELETERPART' AND VALUE = 0);
-ERRMSG 3 WHERE EXISTS
-(SELECT 'X' FROM ACTALT WHERE ACT = :$.ALT);
-```
-The `FROM` clause isn't limited to a single table — it works exactly like
-the `FROM` of a `SELECT`, so multiple tables and joins (via standard
-`WHERE` join syntax) are supported:
-```sql
-GOTO 1 FROM ACTALT A, ACTUSERS U
-WHERE A.ACT = U.ACT AND U.USER = SQL.USER;
-```
-Prefer the `FROM` shorthand when checking existence against one or more
-tables — it's shorter and matches the style used throughout Priority's
-core forms (e.g. ACTALT/BUF1, ACTALT/BUF2). Fall back to the verbose
-`WHERE EXISTS (SELECT ...)` form only when the condition needs to combine
-an EXISTS check with other boolean logic that doesn't cleanly fit a single
-`FROM ... WHERE`.
-
-### GOSUB / SUB / RETURN
-`GOSUB N` calls the subroutine declared with `SUB N;`. Every `SUB` block **must** contain a `RETURN` statement.
-```sql
-GOSUB 500 WHERE :PRICE > 100;   /* call SUB 500 only if condition is met */
-
-SUB 500;
-/* ... subroutine body ... */
-RETURN;
-```
-
-### GOSUB N vs `:GOSUB = N` (and GOTO N vs `:GOTO = N`)
-Both forms are equivalent — `GOSUB N` is syntactic sugar for `:GOSUB = N`, and `GOTO N` for `:GOTO = N`.
-
-Prefer the keyword form (`GOSUB N`, `GOTO N`) — it reads as a flow instruction, not a variable assignment.
-
-Use the variable form (`:GOTO = N`) when a single decision point needs to branch to many possible labels and writing repeated `GOTO N WHERE ...` lines would be noisy:
-```sql
-/* Variable form — cleaner for multi-way dispatch */
-:GOTO = (:TYPE = 'A' ? 10 :  
-/**/    (:TYPE = 'B' ? 20 :
-/**/    (:TYPE = 'C' ? 30 :
-/**/     99)));
-
-/* vs. the verbose keyword alternative */
-GOTO 10 WHERE :TYPE = 'A';
-GOTO 20 WHERE :TYPE = 'B';
-GOTO 30 WHERE :TYPE = 'C';
-GOTO 99;
-```
-
----
-
-## 5. Message commands — ERRMSG, GENMSG, WRNMSG
-
-| Command | Message source | Behavior |
-|---------|---------------|----------|
-| `ERRMSG N` | Form or procedure message table (scoped to the form/procedure) | Displays error, aborts the current operation |
-| `GENMSG N` | System-wide `GENMSG` table (shared across all forms/procedures) | Displays error, aborts the current operation |
-| `WRNMSG N` | Same as ERRMSG source | Displays warning with OK / Cancel buttons; execution continues if user confirms |
-
-All three accept a `WHERE` clause:
-```sql
-ERRMSG 1 WHERE :RETVAL < 1;
-WRNMSG 5 WHERE :QTY > :STOCK;
-```
-
-`ERRMSG` and `WRNMSG` also accept the `FROM table WHERE condition` shorthand
-for an EXISTS check — see "GOTO / ERRMSG / WRNMSG with FROM — shorthand for
-EXISTS" in section 4.
-
-Use `ERRMSG` for form/procedure-specific messages. Use `GENMSG` for reusable system-wide messages (e.g. in shared interfaces). Use `WRNMSG` when the user should be able to override the warning and proceed.
-
----
-
-## 6. Cursor loop pattern
-
-Use when you need to iterate over a result set and perform per-row logic (e.g. UPDATE with a computed value per row).
-
-See the `priority-sql-cursor` skill — canonical template, hard rules,
-skip-iteration pattern, and prev-iteration tracking.
-
----
-
-## 7. Return values — `:RETVAL`
-
-Every SQL statement sets `:RETVAL` immediately after execution. The
-skill uses `:RETVAL` throughout (cursor OPEN, LINK, INSERT checks) —
-this section documents all values in one place.
-
-| Statement | Return value | Failure / edge cases |
-|-----------|-------------|----------------------|
-| `DECLARE` | 1 (always) | Never fails |
-| `OPEN` | Number of records; 0 on failure | Too many open cursors (>100); no selected records |
-| `CLOSE` | 1 on success; 0 on failure | Cursor not open |
-| `FETCH` | 1 if fetched; 0 at end of cursor | Cursor not open; no more records |
-| `SELECT` | Number of selected records; 0 on failure | No record met WHERE condition |
-| `SELECT … INTO` | 1 on success; 0 on failure | No record met WHERE condition |
-| `INSERT … SELECT` | Number of inserted records; –1 if no record meets WHERE | Selected records existed but none inserted (unique key violation or insufficient privileges) |
-| `INSERT … VALUES` | 1 on success; 0 on failure | Failed to insert |
-| `UPDATE … WHERE CURRENT OF` | 1 on success; 0 on failure | Cursor not open; no more records; record not updated |
-| `UPDATE` | Number of updated records; 0 if none updated; –1 if no record meets WHERE | Selected records existed but none updated (unique key violation or insufficient privileges) |
-| `DELETE … WHERE CURRENT OF` | 1 on success; 0 on failure | Cursor not open; no more records |
-| `DELETE` | Number of deleted records; –1 if no record meets WHERE | — |
-| `LINK` | 2 if a new file was created; 1 if linked to an existing file; 0 on failure | –1 if the table is already linked once (duplicate link attempt); insufficient permissions |
-
-**Key patterns derived from this table:**
-
-`RETVAL = 0` after `SELECT INTO` means no row was found — the target
-variable is left at its pre-SELECT value (see §1 ISNULL pattern).
-
-For `INSERT … SELECT` and `UPDATE`, the return value has three distinct
-meanings that are easy to confuse:
-
-| Value | Meaning |
+| Never | Instead |
 |-------|---------|
-| `> 0` | N rows were successfully modified |
-| `0` | WHERE matched rows, but none were written (unique key violation or insufficient privileges) — a real error |
-| `–1` | WHERE matched no rows at all — often acceptable, not necessarily an error |
+| `ISNULL` / `COALESCE` | Initialize the variable to its default *before* the SELECT; a no-row `SELECT INTO` leaves it unchanged |
+| `\|\|` for concatenation | `STRCAT(a, b, c, …)` |
+| Subquery inside `UPDATE … SET` | `SELECT … INTO :var` first, then `UPDATE … SET COL = :var` |
+| `UPDATE … FROM` (multi-table) | Not supported at all — pre-compute a scalar, or use a cursor loop for per-row values |
+| Correlated subquery in the SELECT list of `INSERT … SELECT` | Cursor loop with a separate `SELECT INTO` per row |
+| Inline conditional assignment (`:v = X WHERE …`) | Set the default unconditionally, then `SELECT X INTO :v FROM DUMMY WHERE <cond>` |
+| Blank lines between statements | Priority rejects them on save — never insert them |
 
-```sql
-INSERT INTO SOMETABLE (KEY, VAL)
-SELECT :KEY, :VAL FROM DUMMY;
-ERRMSG 1 WHERE :RETVAL = 0;  /* rows matched but all rejected — error */
-/* RETVAL = -1 means no row matched WHERE — usually fine */
-/* RETVAL > 0 means N rows inserted — success */
-```
+**There is no NULL in Priority.** Every column holds a value; "empty" is a
+type-specific sentinel, which is why `ISNULL`/`COALESCE` have nothing to
+operate on and why the initialize-then-SELECT idiom is complete rather than a
+partial workaround.
 
-`LINK` return values also distinguish creation from reuse: `2` means a new
-temp file was created, `1` means it linked to a temp file that already
-existed (e.g. re-linking without `REMOVE`) — useful if code needs to branch
-on whether the file already has data. `–1` means the same table was already
-linked once (a duplicate link attempt), distinct from an outright failure
-(`0`); both still satisfy the `:RETVAL < 1` guard pattern used below.
+| Type | Empty value |
+|------|-------------|
+| Single character | `'\0'` |
+| String | `''` |
+| Integer | `0` |
+| Real | `0.0` |
 
-Ref: [Return Values and Statement Failure](https://prioritysoftware.github.io/sdk/RETVAL-Values#table-of-return-values-and-statement-failure)
-
----
-
-## 8. Linked temp tables (STACK, STACK4, GENERALLOAD, etc.)
-
-Always pair every `LINK` with an `UNLINK`. Use `SQL.TMPFILE` as the file handle.
-
-Every `LINK` must be guarded — with `ERRMSG` or a `GOTO` past the section
-that uses the linked table. This isn't just a style habit: if a `LINK` fails
-and isn't guarded, the statements that follow execute against the real table
-instead of the intended temp copy, silently and with no error.
-
-```sql
-SELECT SQL.TMPFILE INTO :MY_TMP FROM DUMMY;
-LINK STACK4 MYDATA TO :MY_TMP;
-ERRMSG 1 WHERE :RETVAL < 1;
-
-/* ... use MYDATA ... */
-
-UNLINK AND REMOVE STACK4 MYDATA;
-```
-
-`UNLINK AND REMOVE` frees both the link and the temp file. Use plain `UNLINK` if you want to keep the file for re-linking later.
-
-`LINK ALL` is shorthand for `LINK` plus auto-populating every record from the
-source table into the newly linked temp table. Use it sparingly, if at all —
-prefer a scoped `INSERT ... SELECT ... WHERE` after a plain `LINK` so only
-the records actually needed get copied.
-
-Ref: [Link/Unlink](https://prioritysoftware.github.io/sdk/Link-Unlink)
-
-For multi-level GENERALLOAD with header + subform lines, see the `priority-sql-advanced` skill §1.
+**Direction matters for integrations.** Traffic *out* of Priority — calling
+someone else's web service — is `WSCLIENT`, covered here. Traffic *into*
+Priority over HTTP is the REST/OData API, a separate skill
+(`priority-rest-api`). They are unrelated mechanisms.
 
 ---
 
-## 9. EXECUTE INTERFACE — standard pattern
+## Reference files
 
-```sql
-/* 1. Create a linked GENERALLOAD */
-SELECT SQL.TMPFILE INTO :GEN_TMP FROM DUMMY;
-LINK GENERALLOAD TO :GEN_TMP;
-GENMSG 1 WHERE :RETVAL <= 0;
+Load the relevant file with the Read tool when the request needs that detail —
+don't load them speculatively. These files and their names are internal
+navigation aids for you, not something to mention to the user — answer with
+the content itself, never by citing a reference file's path or name.
 
-/* 2. Populate GENERALLOAD */
-INSERT INTO GENERALLOAD (LINE, RECORDTYPE, TEXT1, TEXT2, ...)
-SELECT 1, '10', :VAL1, :VAL2, ...
-FROM DUMMY;
-GENMSG 1 WHERE :RETVAL <= 0;
+Rows compose: a question that spans two areas needs both files. "Charge a card
+when an order is saved" is a trigger question *and* an outbound-HTTP question;
+"load documents from a staging table" is a temp-table question *and* a cursor
+question. Load what the question actually spans, not just the first row that
+matches.
 
-/* 3. Execute */
-EXECUTE INTERFACE 'INTERFACE_NAME', SQL.TMPFILE, '-L', :GEN_TMP;
+### Procedural SQL (SQLI)
 
-/* 4. Check for errors (standard pattern) */
-ERRMSG 1 WHERE EXISTS (
-    SELECT 1 FROM ERRMSGS
-    WHERE USER = SQL.USER AND TYPE = 'i'
-);
+| File | Load when the request involves… |
+|------|----------------------------------|
+| `references/sql-syntax.md` | Ternary expressions, `SELECT … FROM DUMMY`, `LIKE` patterns, joins, supported operators, date handling |
+| `references/sql-scoping.md` | `:$.`, `:$$.`, `:$1.`, `:GLOBAL.`, form-field variables, which scope a trigger sees |
+| `references/sql-cursor.md` | `DECLARE CURSOR`, `OPEN`, `FETCH`, `LOOP`, `CLOSE`, skipping an iteration, tracking previous-row values, group boundaries |
+| `references/sql-control-flow.md` | `GOTO`, `GOSUB`, `LABEL`, `LOOP`, `ERRMSG`, `WRNMSG`, `GENMSG`, `:RETVAL`, statement failure |
+| `references/sql-temp-tables.md` | `STACK`, `STACK4`, `GENERALLOAD`, `LINK`/`UNLINK`, `SQL.TMPFILE`, `EXECUTE INTERFACE` |
+| `references/sql-advanced.md` | Multi-level document loading (header + lines, `RECORDTYPE`), pre-computation before a complex `INSERT`, the abstract SUB pattern |
+| `references/sql-style.md` | Formatting, naming, commenting conventions, reviewing existing code for style |
 
-/* 5. Clean up */
-UNLINK GENERALLOAD;
-```
+### Forms
 
-### Error handling variants
+| File | Load when the request involves… |
+|------|----------------------------------|
+| `references/forms-triggers.md` | Any trigger type (`CHECK-FIELD`, `POST-FIELD`, `PRE-INSERT`, `POST-UPDATE`, `PRE-FORM`…), trigger execution order, trigger naming, and the `CHOOSE-FIELD` variants (`MCHOOSE-FIELD`, `AND STOP`, `NO SORT`, union) |
+| `references/forms-choose-field.md` | Creating a picklist end to end — the values table, the FK column, the form, and the buffer trigger for expansion tables |
+| `references/forms-metadata.md` | `EFORM` queries, `FCLMN_SUBFORM`, `FLINK_SUBFORM`, which columns are hidden/read-only/calculated, exploring form structure |
+| `references/forms-eform-create.md` | Creating a form programmatically by loading into `EFORM` |
+| `references/forms-include-buffers.md` | `#INCLUDE`, buffer triggers, sharing logic between triggers |
 
-**Standard** — check `ERRMSGS` after execution:
-```sql
-ERRMSG 1 WHERE EXISTS (
-    SELECT 1 FROM ERRMSGS WHERE USER = SQL.USER AND TYPE = 'i'
-);
-```
+### Schema, procedures, functions
 
-**Advanced** — structured per-line error capture via `STACK_ERR`:
-Add the `-stackerr` switch and link `STACK_ERR` to a tmpfile before executing.
-Ref: [SDK Execute-FormLoads – Errors](https://prioritysoftware.github.io/sdk/Execute-FormLoads#dealing-with-errors-and-reloading) | [SDK STACKERR](https://prioritysoftware.github.io/sdk/STACKERR)
+| File | Load when the request involves… |
+|------|----------------------------------|
+| `references/dbi.md` | `CREATE TABLE`, `FOR TABLE INSERT`, column types/widths, `UNIQUE`/`NONUNIQUE` indexes, expansion tables, adding a column |
+| `references/procedures.md` | Procedure step types (B/C/R/F/P/I/L), parameter types, `INPUT` vs `INPUTF`, processed reports, `FILE` parameters |
+| `references/ref-scalar-functions.md` | Looking up a scalar function — `STRCAT`, `ITOA`, `ATOI`, `SUBSTR`, `STRPIECE`, `ROUND`, date functions, date arithmetic |
+| `references/ref-system-functions.md` | `SQL.USER`, `SQL.DATE`, `SQL.TMPFILE`, `SQL.GUID`, `SQL.ORACLE`, system variables (`:SCRLINE`, `:PAR1-3`, `:FORM_INTERFACE`) |
+| `references/ref-entmessage.md` | `ENTMESSAGE`, message numbering, parameter expansion in messages |
+| `references/ref-sdk-links.md` | Pointing at official SDK documentation pages |
 
-**Anti-pattern** — do NOT use `LOADED <> 'Y'` as the primary error check:
-```sql
-/* WRONG — not the standard pattern */
-ERRMSG 1 WHERE EXISTS (SELECT 1 FROM GENERALLOAD WHERE LOADED <> 'Y');
-```
+### Integrations
 
-For building the GENERALLOAD hierarchy (header + subform rows), see the `priority-sql-advanced` skill §1.
-
----
-
-## 10. Code style conventions
-
-### Line length — 68 characters
-Priority text lines are 68 characters long. Break long lines to stay within this limit. Never break in the middle of a name or a keyword.
-
-```sql
-/* WRONG — line too long */
-INSERT INTO GENERALLOAD (LINE, RECORDTYPE, TEXT1, TEXT2, TEXT3, TEXT4, TEXT5)
-
-/* CORRECT — break after the opening paren, before a column name */
-INSERT INTO GENERALLOAD (LINE, RECORDTYPE,
-                         TEXT1, TEXT2, TEXT3,
-                         TEXT4, TEXT5)
-```
-
-For long WHERE clauses, break before `AND` / `OR`:
-```sql
-SELECT PROJ INTO :ARNT_PROJ
-FROM   PROJLINK, STATUSTYPES
-WHERE  PROJLINK.IV        =  :NSCUST
-AND    STATUSTYPES.TYPE   =  :STATUSTYPE
-AND    PROJLINK.TYPE      =  STATUSTYPES.EXTTYPE
-AND    PROJLINK.KLINE     =
-       (:STATUSTYPE = 'S' ? -1 : :KLINE);
-```
-
-### No leading whitespace
-
-Priority trims leading whitespace when saving trigger code, so
-continuation lines must never start with a space or tab.
-
-Use `/**/` at the start of a continuation line in a code block,
-or any character at the start of a comment continuation line.
-
-```sql
-/* WRONG — leading spaces will be trimmed on save */
-GOTO 14922 WHERE :$.ARNO_QREPDECNAME = :$1.ARNO_QREPDECNAME
-             AND :$.ARNY_MRBDECNAME = :$1.ARNY_MRBDECNAME ;
-
-/* CORRECT — /**/ anchors the continuation line */
-GOTO 14922 WHERE :$.ARNO_QREPDECNAME = :$1.ARNO_QREPDECNAME
-/**/ AND :$.ARNY_MRBDECNAME = :$1.ARNY_MRBDECNAME ;
-```
-
-### Subroutine organization
-
-Offload repeated logic to `SUB` blocks (or `#INCLUDE` triggers for
-cross-form reuse). This keeps the main flow readable and avoids
-duplicated code.
-
-Separate the subroutine section from the main body with a divider comment:
-
-```sql
-/* main procedure body */
-GOSUB 500 WHERE :NEEDS_LOOKUP = 'Y';
-...
-LABEL 9999;
-END;
-
-/*===============================================================*/
-/*                        SUBROUTINES                            */
-/*===============================================================*/
-
-SUB 500;
-/* ... */
-RETURN;
-
-SUB 510;
-/* ... */
-RETURN;
-```
-
-For sharing logic across forms with `#INCLUDE` and buffers, see the `priority-sql-forms` skill §4.
-
-### Indentation
-Priority text forms reject lines that begin with whitespace (spaces or tabs). To indent continuation lines, start with a blank comment `/**/` followed by spaces:
-
-```sql
-INSERT INTO GENERALLOAD (LINE, RECORDTYPE,
-/**/                     TEXT1, TEXT2, TEXT3);
-
-SELECT PROJ INTO :ARNT_PROJ
-FROM   PROJLINK, STATUSTYPES
-WHERE  PROJLINK.IV      = :NSCUST
-AND    PROJLINK.KLINE   =
-/**/   (:STATUSTYPE = 'S' ? -1 : :KLINE);
-```
-
-This applies anywhere a logical continuation line would otherwise start with whitespace.
-
-### Variable initialization conventions
-
-Group variables of the same type onto a single assignment line for readability:
-
-```sql
-/* Strings */
-:PARTNAME = :CUSTNAME = :WARHSNAME = '';
-
-/* Integers */
-:PART = :CUST = :WARHS = 0;
-
-/* Real / decimal */
-:PRICE = 0.0;
-
-/* Dates — initialize as dd/mm/yy, not as 0 */
-:CURDATE = :OPENDATE = 01/01/88;
-
-/* Single-character flags */
-:INVFLAG = :TYPE = '\0';
-```
-
-**Date fields** are internally stored as integers (minutes since 01/01/88), so `0` is technically valid. However, always initialize them as `dd/mm/yy` literals — the engine then formats them as dates in messages and displays, rather than as a raw minute count, which makes debugging far easier.
-
-**Single-character fields** (`'\0'`) are distinct from empty strings (`''`). Use `'\0'` for CHAR(1) columns and flag fields.
-
-### General
-- Align `INTO`, `FROM`, `WHERE`, `AND` vertically where it aids readability.
-- Use `/* ... */` comments, not `--` (Priority line comments are less portable).
+| File | Load when the request involves… |
+|------|----------------------------------|
+| `references/wsclient.md` | Calling an external service *from* Priority SQL — `WSCLIENT`, writing the request body to a file (`ASCII` / `ASCII ADDTO`), `-head2`, `-authname`, OAuth2, `ERRMSGS` error checking, and parsing the response with `XMLPARSE` (XML or JSON) |
