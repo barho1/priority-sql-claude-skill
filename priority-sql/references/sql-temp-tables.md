@@ -39,7 +39,7 @@ main reason to use an alias deliberately or not at all.
 
 Ref: [Link/Unlink](https://prioritysoftware.github.io/sdk/Link-Unlink)
 
-For multi-level GENERALLOAD with header + subform lines, see the advanced patterns reference.
+For multi-level GENERALLOAD with header + subform lines, see the `priority-sql-advanced` skill.
 
 ---
 
@@ -85,7 +85,7 @@ Ref: [SDK Execute-FormLoads – Errors](https://prioritysoftware.github.io/sdk/E
 ERRMSG 1 WHERE EXISTS (SELECT 1 FROM GENERALLOAD WHERE LOADED <> 'Y');
 ```
 
-For building the GENERALLOAD hierarchy (header + subform rows), see the advanced patterns reference.
+For building the GENERALLOAD hierarchy (header + subform rows), see the `priority-sql-advanced` skill.
 
 ---
 

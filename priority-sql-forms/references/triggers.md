@@ -1,6 +1,7 @@
 ## 3. Form triggers
 
-For cursor loops and temp tables used inside trigger code, see the cursor loop and temp-table references.
+For cursor loops used inside trigger code, see the `priority-sql-cursor` skill.
+For temp tables, see the `priority-sql` skill.
 
 Ref: [Form Triggers](https://prioritysoftware.github.io/sdk/Form-Triggers)
 | [Creating Your Own Triggers](https://prioritysoftware.github.io/sdk/Creating-your-Triggers)
@@ -110,8 +111,9 @@ the changed column has its own validation logic.
 
 ### CHOOSE-FIELD variants
 
-See the CHOOSE-FIELD picklist reference for the full column creation workflow. The trigger itself supports
-several forms:
+See this skill's picklist creation workflow (values table, FK column, form,
+buffer trigger) for the full column creation process. The trigger itself
+supports several forms:
 
 **Standard SQL query** — first column is the display description (max 64
 chars), second is the value inserted into the field, optional third column
@@ -189,7 +191,7 @@ changes.
 To make `POST-FORM` fire unconditionally on exit regardless of changes,
 assign `:ACTIVATE_POST_FORM = 'Y'` in a `PRE-FORM` trigger.
 
-See the system functions and variables reference — *PRE-FORM automation* — for the
+See the `priority-sql-ref` skill — *PRE-FORM automation* — for the
 full list of related system variables (`:KEYSTROKES`, `:PREFORMQUERY`,
 `:ACTIVATE_POST_FORM`, etc.).
 

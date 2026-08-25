@@ -65,7 +65,7 @@ SUB 510;
 RETURN;
 ```
 
-For sharing logic across forms with `#INCLUDE` and buffers, see the include/buffers reference.
+For sharing logic across forms with `#INCLUDE` and buffers, see the `priority-sql-forms` skill.
 
 ### Indentation
 Priority text forms reject lines that begin with whitespace (spaces or tabs). To indent continuation lines, start with a blank comment `/**/` followed by spaces:

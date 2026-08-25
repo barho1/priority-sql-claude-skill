@@ -4,7 +4,7 @@
 or procedure, and expands any parameter placeholders in that text using
 the current values of `:PAR1`, `:PAR2`, `:PAR3`.
 
-For ENTMESSAGE usage conventions in code style, see the code style reference.
+For ENTMESSAGE usage conventions in code style, see the `priority-sql` skill.
 
 ### Syntax
 

@@ -1,20 +1,17 @@
 ---
 name: priority-sql
 description: >
-  Priority ERP development — procedural SQL (SQLI), form triggers, procedures,
-  DBI. Unsupported SQL syntax (ISNULL, ||, subquery in SET, UPDATE...FROM),
-  cursor loops (DECLARE/OPEN/FETCH/LOOP/CLOSE,
-  skip-iteration, prev-row tracking), temp tables (STACK/STACK4/GENERALLOAD),
-  EXECUTE INTERFACE, control flow (GOTO/GOSUB/LABEL), message commands
-  (ERRMSG/WRNMSG/GENMSG/ENTMESSAGE), :RETVAL, variable scoping (:$., :$$.,
-  :$1., :GLOBAL.); form triggers (CHECK-FIELD, POST-FIELD, CHOOSE-FIELD,
-  SEARCH-FIELD, PRE/POST-INSERT/UPDATE/DELETE, PRE/POST-FORM), #INCLUDE,
-  buffers, EFORM; procedure step types (B/C/R/F/P/I/L); DBI DDL (CREATE
-  TABLE, FOR TABLE INSERT); scalar functions (STRCAT, ITOA, ATOI, SUBSTR,
-  STRPIECE, date functions), SQL.* functions, system variables (:SCRLINE,
-  :PAR1-3, :FORM_INTERFACE, :PREFORMQUERY); WSCLIENT. Context cues: ERRMSG, GOSUB, LINK/UNLINK,
-  SQL.TMPFILE, :$.FIELD, STACK, CURSOR, CHOOSE-FIELD, EFORM, CREATE TABLE,
-  WSCLIENT. For the REST/OData API *into* Priority, see `priority-rest-api`.
+  Write, review, and debug Priority ERP procedural SQL — unsupported syntax
+  (ISNULL, ||, subquery in SET, UPDATE...FROM), cursor loops, temp tables
+  (STACK/STACK4/GENERALLOAD), EXECUTE INTERFACE, control flow
+  (GOTO/GOSUB/LABEL/LOOP), message commands (ERRMSG/WRNMSG/GENMSG),
+  return values (:RETVAL), variable scoping (:$., :$$., :$1., :GLOBAL.),
+  and code style. Use when writing or fixing Priority SQL trigger or
+  procedure code, designing cursor patterns, or asking why Priority SQL is
+  failing. Context cues: ERRMSG, GOSUB, LINK/UNLINK, SQL.TMPFILE, :$.FIELD,
+  STACK table names. For complex multi-level GENERALLOAD or pre-computation
+  INSERT patterns, see the `priority-sql-advanced` skill. For procedure step
+  types and structure, see the `priority-sql-procedures` skill.
 ---
 
 # Priority ERP Development
@@ -61,10 +58,13 @@ partial workaround.
 | Integer | `0` |
 | Real | `0.0` |
 
-**Direction matters for integrations.** Traffic *out* of Priority — calling
-someone else's web service — is `WSCLIENT`, covered here. Traffic *into*
-Priority over HTTP is the REST/OData API, a separate skill
-(`priority-rest-api`). They are unrelated mechanisms.
+For a cursor loop, see the `priority-sql-cursor` skill. For form triggers,
+CHOOSE-FIELD, or EFORM, see the `priority-sql-forms` skill. For creating or
+modifying a table, see the `priority-sql-dbi` skill. For calling an external
+web service, see the `priority-sql-integrations` skill (WSCLIENT) — direction
+matters: that's Priority calling *out*, unrelated to the `priority-rest-api`
+skill's traffic *into* Priority. For scalar/system functions and variables,
+see the `priority-sql-ref` skill.
 
 ---
 
@@ -75,47 +75,10 @@ don't load them speculatively. These files and their names are internal
 navigation aids for you, not something to mention to the user — answer with
 the content itself, never by citing a reference file's path or name.
 
-Rows compose: a question that spans two areas needs both files. "Charge a card
-when an order is saved" is a trigger question *and* an outbound-HTTP question;
-"load documents from a staging table" is a temp-table question *and* a cursor
-question. Load what the question actually spans, not just the first row that
-matches.
-
-### Procedural SQL (SQLI)
-
 | File | Load when the request involves… |
 |------|----------------------------------|
 | `references/sql-syntax.md` | Ternary expressions, `SELECT … FROM DUMMY`, `LIKE` patterns, joins, supported operators, date handling |
 | `references/sql-scoping.md` | `:$.`, `:$$.`, `:$1.`, `:GLOBAL.`, form-field variables, which scope a trigger sees |
-| `references/sql-cursor.md` | `DECLARE CURSOR`, `OPEN`, `FETCH`, `LOOP`, `CLOSE`, skipping an iteration, tracking previous-row values, group boundaries |
 | `references/sql-control-flow.md` | `GOTO`, `GOSUB`, `LABEL`, `LOOP`, `ERRMSG`, `WRNMSG`, `GENMSG`, `:RETVAL`, statement failure |
-| `references/sql-temp-tables.md` | `STACK`, `STACK4`, `GENERALLOAD`, `LINK`/`UNLINK`, `SQL.TMPFILE`, `EXECUTE INTERFACE` |
-| `references/sql-advanced.md` | Multi-level document loading (header + lines, `RECORDTYPE`), pre-computation before a complex `INSERT`, the abstract SUB pattern |
+| `references/sql-temp-tables.md` | `STACK`, `STACK4`, `GENERALLOAD`, `LINK`/`UNLINK`, `SQL.TMPFILE`, `EXECUTE INTERFACE`, finding which interface to use |
 | `references/sql-style.md` | Formatting, naming, commenting conventions, reviewing existing code for style |
-
-### Forms
-
-| File | Load when the request involves… |
-|------|----------------------------------|
-| `references/forms-triggers.md` | Any trigger type (`CHECK-FIELD`, `POST-FIELD`, `PRE-INSERT`, `POST-UPDATE`, `PRE-FORM`…), trigger execution order, trigger naming, and the `CHOOSE-FIELD` variants (`MCHOOSE-FIELD`, `AND STOP`, `NO SORT`, union) |
-| `references/forms-choose-field.md` | Creating a picklist end to end — the values table, the FK column, the form, and the buffer trigger for expansion tables |
-| `references/forms-metadata.md` | `EFORM` queries, `FCLMN_SUBFORM`, `FLINK_SUBFORM`, which columns are hidden/read-only/calculated, exploring form structure |
-| `references/forms-eform-create.md` | Creating a form programmatically by loading into `EFORM` |
-| `references/forms-include-buffers.md` | `#INCLUDE`, buffer triggers, sharing logic between triggers |
-
-### Schema, procedures, functions
-
-| File | Load when the request involves… |
-|------|----------------------------------|
-| `references/dbi.md` | `CREATE TABLE`, `FOR TABLE INSERT`, column types/widths, `UNIQUE`/`NONUNIQUE` indexes, expansion tables, adding a column |
-| `references/procedures.md` | Procedure step types (B/C/R/F/P/I/L), parameter types, `INPUT` vs `INPUTF`, processed reports, `FILE` parameters |
-| `references/ref-scalar-functions.md` | Looking up a scalar function — `STRCAT`, `ITOA`, `ATOI`, `SUBSTR`, `STRPIECE`, `ROUND`, date functions, date arithmetic |
-| `references/ref-system-functions.md` | `SQL.USER`, `SQL.DATE`, `SQL.TMPFILE`, `SQL.GUID`, `SQL.ORACLE`, system variables (`:SCRLINE`, `:PAR1-3`, `:FORM_INTERFACE`) |
-| `references/ref-entmessage.md` | `ENTMESSAGE`, message numbering, parameter expansion in messages |
-| `references/ref-sdk-links.md` | Pointing at official SDK documentation pages |
-
-### Integrations
-
-| File | Load when the request involves… |
-|------|----------------------------------|
-| `references/wsclient.md` | Calling an external service *from* Priority SQL — `WSCLIENT`, writing the request body to a file (`ASCII` / `ASCII ADDTO`), `-head2`, `-authname`, OAuth2, `ERRMSGS` error checking, and parsing the response with `XMLPARSE` (XML or JSON) |

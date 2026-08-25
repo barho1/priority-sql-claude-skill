@@ -64,9 +64,9 @@ yourself — they are always available.
 
 | Variable | Type | Set by | Purpose |
 |----------|------|--------|---------|
-| `:RETVAL` | INT | Every SQL statement | Return value of the previous query (see :RETVAL in the control flow reference) |
+| `:RETVAL` | INT | Every SQL statement | Return value of the previous query (see :RETVAL in the `priority-sql` skill) |
 | `:SCRLINE` | INT | Engine | Current form line number — available in triggers only |
-| `:PAR1`, `:PAR2`, `:PAR3` | CHAR(64) | Your code | Parameter slots for `ERRMSG`/`WRNMSG` message placeholders `<P1>`–`<P3>` (see message commands in the control flow reference, and the form metadata reference) |
+| `:PAR1`, `:PAR2`, `:PAR3` | CHAR(64) | Your code | Parameter slots for `ERRMSG`/`WRNMSG` message placeholders `<P1>`–`<P3>` (see message commands in the `priority-sql` skill, and the `priority-sql-forms` skill) |
 | `:PAR4` | CHAR | Your code | First argument value in `CHOOSE-` triggers (not supported in the web interface) |
 | `:_CHANGECOUNT` | INT | Engine | Number of fields modified in the current form record — available in PRE/POST-UPDATE triggers |
 | `:FIRSTLINESFILL` | INT | Engine | `1` when entering a sub-level (useful for automated queries), `0` after the query runs |

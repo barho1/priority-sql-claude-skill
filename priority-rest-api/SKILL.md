@@ -13,8 +13,8 @@ description: >
   querying or loading Priority data over HTTP, or debugging an OData request.
   Context cues: serviceRoot, odata/Priority, _SUBFORM, $expand, $filter,
   $batch, InterfaceErrors, 429. For calling *out* from Priority SQL to an
-  external service (WSCLIENT), and for form and column metadata via EFORM, see
-  the `priority-sql` skill.
+  external service, see `priority-sql-integrations` (WSCLIENT). For form and
+  column metadata via EFORM, see `priority-sql-forms`.
 ---
 
 # Priority ERP — REST / OData API
@@ -23,7 +23,7 @@ Ref: [REST API documentation](https://prioritysoftware.github.io/restapi/)
 
 **Direction matters.** This skill covers traffic *into* Priority. For traffic
 *out* — Priority SQL calling an external web service — use `WSCLIENT`, see the
-`priority-sql` skill.
+`priority-sql-integrations` skill.
 
 The API is a thin wrapper around Priority **forms**, not around tables. Every
 request runs the form's triggers, validations and business rules, exactly as if
@@ -55,7 +55,7 @@ https://www.eshbelsaas.com/ui/odata/Priority/tabmob.ini/usdemo
 The administrator can output the correct service root with the **Send Program
 Activation Link** program. `GET serviceRoot/` lists every exposed entity set
 plus the `$metadata` link. Demo-environment credentials are in the
-`priority-sql` skill (form metadata reference).
+`priority-sql-forms` skill.
 
 ### Request / response format
 

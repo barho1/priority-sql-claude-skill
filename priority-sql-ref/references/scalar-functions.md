@@ -68,7 +68,7 @@ SELECT RTOA(150654.665, 2, USECOMMA) FROM DUMMY; /* '150.654,67' */
 ```
 
 Use `ITOA` whenever an INT must be stored in a CHAR column (e.g. KEY1/KEY2
-in GENERALLOAD) or passed to `STRCAT`. See also the supported SQL syntax reference.
+in GENERALLOAD) or passed to `STRCAT`. See also the `priority-sql` skill.
 
 ---
 
@@ -226,7 +226,7 @@ SELECT BEGINOFYEAR(10/22/06)    FROM DUMMY; /* 01/01/06 */
 :DISPLAY = DTOA(SQL.DATE, 'DD/MM/YYYY HH24:MI');
 ```
 
-See the supported SQL syntax reference for DTOA in variable initialization, and the ENTMESSAGE reference for DTOA with ENTMESSAGE parameters.
+See the `priority-sql` skill for DTOA in variable initialization, and this skill's ENTMESSAGE reference for DTOA with ENTMESSAGE parameters.
 
 ---
 
@@ -234,7 +234,7 @@ See the supported SQL syntax reference for DTOA in variable initialization, and 
 
 | Function | Syntax | Returns | Notes |
 |----------|--------|---------|-------|
-| `ENTMESSAGE` | `ENTMESSAGE(entity, type, num)` | CHAR | Returns numbered message text with `<P1>`–`<P3>` placeholders expanded. See the ENTMESSAGE reference for full details |
+| `ENTMESSAGE` | `ENTMESSAGE(entity, type, num)` | CHAR | Returns numbered message text with `<P1>`–`<P3>` placeholders expanded. See this skill's ENTMESSAGE reference for full details |
 | `SYSPATH` | `SYSPATH(folder, output_type)` | CHAR | Path to a system folder. `folder`: `BIN`, `PREP`, `LOAD`, `MAIL`, `SYS`, `TMP`, `SYNC`, `IMAGE`. `output_type`: `1` = relative, `0` = absolute |
 | `NEWATTACH` | `NEWATTACH(filename, extension)` | CHAR | Creates a unique path in the system mail folder. Extension optional but recommended (include the dot, e.g. `'.zip'`). Handles naming conflicts automatically |
 

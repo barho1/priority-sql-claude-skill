@@ -40,7 +40,7 @@ form to a sub-level form.
 
 Load **through the form interface**, so the load routes through the form and
 its logic fires. This is also what keeps a form-creation script inside the
-no-direct-write-to-standard-table rule (see the form triggers reference).
+no-direct-write-to-standard-table rule (see the trigger reference in this skill).
 
 For a runnable `.pq`, prefer a **dynamic interface** (v21.0+) — no predefined
 interface to set up and no generic-column mapping, which is what makes it worth
@@ -56,8 +56,8 @@ keys are the real field `NAME`s. See the standard
 `ERRMSGS` check that follows `EXECUTE INTERFACE`.
 
 Alternatives: REST/OData record creation for a live system, or a predefined
-`GENERALLOAD` interface if one already exists — see the advanced patterns
-reference for building that hierarchy.
+`GENERALLOAD` interface if one already exists — see the `priority-sql-advanced`
+skill for building that hierarchy.
 
 ### Design rules
 

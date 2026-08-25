@@ -1,3 +1,14 @@
+---
+name: priority-sql-cursor
+description: >
+  Priority ERP SQL cursor loop pattern — canonical DECLARE/OPEN/FETCH/CLOSE
+  template, hard rules (never violate the structure), skip-iteration pattern
+  (GOTO to a label above LOOP), and prev-iteration tracking for group
+  boundaries. Use whenever writing, reviewing, or debugging a Priority cursor
+  loop, or any time DECLARE CURSOR, OPEN, FETCH, LOOP, or CLOSE appears in
+  the code.
+---
+
 # Cursor loop pattern
 
 Use when you need to iterate over a result set and perform per-row logic (e.g. UPDATE with a computed value per row).
@@ -59,7 +70,7 @@ A cursor overwrites its variables on every `FETCH`. If you need to reference a v
 Rules:
 - **Initialize tracking variables explicitly** after `OPEN` succeeds and before `LABEL 1000`. Never assume they start at zero or empty.
 - **Handle the null/uninitialized case** at the top of the cursor body — on the first iteration the tracking variable will hold its initialized default, which must be a value that cannot appear as a real key (e.g. `0` for integers, `''` or `'\0'` for strings).
-- **Group initializations by type** on a single line for readability (see variable initialization conventions in the code style reference).
+- **Group initializations by type** on a single line for readability.
 
 ```sql
 DECLARE Cur CURSOR FOR

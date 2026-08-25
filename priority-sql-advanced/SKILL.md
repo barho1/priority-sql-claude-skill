@@ -1,10 +1,20 @@
-# Priority ERP SQL — Advanced Patterns
+---
+name: priority-sql-advanced
+description: >
+  Advanced Priority ERP SQL patterns — GENERALLOAD row accumulation for
+  multi-level document loading (header + subform lines, RECORDTYPE hierarchy),
+  and pre-computation pattern for complex INSERTs (STACK-based pre-computation
+  followed by a clean join-based INSERT). Use when building complex document
+  loading interfaces or INSERT logic that requires correlated lookup values
+  pre-computed via cursor or temp tables.
+---
 
+# Priority ERP SQL — Advanced Patterns
 
 ## 1. GENERALLOAD row accumulation — header + subform lines
 
-For the basic EXECUTE INTERFACE pattern, see the temp-table reference.
-For cursor loops used to build the row set, see the cursor loop reference.
+For the basic EXECUTE INTERFACE pattern, see the `priority-sql` skill.
+For cursor loops used to build the row set, see the `priority-sql-cursor` skill.
 
 When loading a document with subform lines via GENERALLOAD, both the
 header and line rows go into the same temp table in a single pass,
@@ -54,7 +64,7 @@ UNLINK GENERALLOAD;
 ```
 
 `'LOADNAME'` stands in for the actual form-load interface — see *Finding
-which interface to use* in the temp-table reference. It is **not** the form
+which interface to use* in the `priority-sql` skill. It is **not** the form
 name: `GENERALLOAD` loads go through a regular interface, and dynamic
 interfaces (which are named for what they load) work only with XML and JSON.
 
@@ -66,11 +76,10 @@ Key rules:
   interface definition, not in the code. The code is opaque without
   the interface open alongside it — comment each INSERT accordingly.
 
-
 ## 2. Pre-computation pattern for complex INSERTs
 
-For the cursor loop pattern, see the cursor loop reference.
-For STACK/STACK4 temp table usage, see the temp-table reference.
+For the cursor loop pattern, see the `priority-sql-cursor` skill.
+For STACK/STACK4 temp table usage, see the `priority-sql` skill.
 
 When an `INSERT ... SELECT` requires conditional flags or lookup values that would need correlated subqueries or complex inline logic, pre-compute into STACK tables first, then do a clean JOIN-based INSERT.
 
@@ -95,10 +104,9 @@ AND   LP.ELEMENT = PA.SON;
 UNLINK AND REMOVE STACK LEAFPARTS;
 ```
 
-
 ## 3. Abstract SUB pattern — deferred calculation via `#INCLUDE`
 
-Requires familiarity with `#INCLUDE` and buffers — see the include/buffers reference.
+Requires familiarity with `#INCLUDE` and buffers — see the `priority-sql-forms` skill.
 
 When shared trigger logic needs a value that is computed differently per
 form, and passing a pre-computed variable would be too complex, the

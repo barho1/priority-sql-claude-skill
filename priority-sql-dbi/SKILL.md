@@ -1,10 +1,22 @@
+---
+name: priority-sql-dbi
+description: >
+  Priority ERP DBI (database interface) — DDL operations for creating and
+  modifying the Priority database schema. Covers CREATE TABLE syntax (column
+  types INT/REAL/CHAR/RCHAR/DATE, width conventions, UNIQUE and NONUNIQUE
+  indexes, single-company vs multi-company flags), and FOR TABLE INSERT syntax
+  for adding columns to existing tables (FK columns, plain columns, expansion
+  tables). Use when creating a new custom table, adding a column to an existing
+  table, or designing the schema for a new entity. Not for SQLI (triggers,
+  procedures, cursors) — see the `priority-sql` skill for those.
+---
+
 # Priority ERP — DBI (Database Interface)
 
 DBI commands define and modify the database schema. They are distinct from
 SQLI (procedural SQL) — DBI is DDL, SQLI is DML/flow.
 
 Ref: [DBI syntax](https://prioritysoftware.github.io/sdk/DBI-Syntax)
-
 
 ## 1. CREATE TABLE syntax
 
@@ -86,7 +98,6 @@ Width for `REAL` columns follows the destination table's precision requirements.
 - If there is a CODE column (`CHAR, 3`), it becomes the second `UNIQUE` key.
   When absent, the DES column is the unique key instead.
 
-
 ## 2. FOR TABLE INSERT — adding a column to an existing table
 
 `FOR TABLE ... INSERT` adds one or more columns to an existing Priority table.
@@ -136,4 +147,4 @@ For large tables near the Priority column-count limit, add the column to
 an expansion table (`PARTPARAM`, or a private `PRIV_PART`) instead of the
 base table. Expansion tables share the same autounique/unique key as the
 base table. When an FK lives in an expansion table, a buffer trigger is
-required to save it — see the CHOOSE-FIELD picklist creation workflow.
+required to save it — see the `priority-sql-forms` skill.

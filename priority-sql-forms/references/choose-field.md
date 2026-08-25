@@ -4,7 +4,7 @@ A CHOOSE-FIELD column presents the user with a picklist of predefined values.
 Creating one is a multi-step process involving a values table, a form, a
 foreign-key column, and (optionally) a buffer trigger for expansion tables.
 
-For cursor and temp-table patterns used in trigger code, see the cursor loop and temp-table references.
+For cursor and temp-table patterns used in trigger code, see the `priority-sql-cursor` and `priority-sql` skills.
 
 The example below builds a **Financial Classification** field for the PART
 table, using the customer prefix `PRIV`.
@@ -59,7 +59,7 @@ INSERT PRIV_FNCCLASS (INT,13,'סיווג_כספים_(ID)')
 - If adding to a **private** table (name already has the prefix), the
   column itself does not need the prefix — the table isolation is sufficient.
 
-For FOR TABLE INSERT as a standalone reference, see the DBI reference.
+For FOR TABLE INSERT as a standalone reference, see the `priority-sql-dbi` skill.
 
 DBI syntax reference:
 [https://prioritysoftware.github.io/sdk/DBI-Syntax](https://prioritysoftware.github.io/sdk/DBI-Syntax)
@@ -181,7 +181,7 @@ Rules:
   would fire on every row that already exists, which is the normal case.
 - The `UPDATE` must reference every expansion field being managed.
 
-For ENTMESSAGE used in trigger messages, see the ENTMESSAGE reference.
+For ENTMESSAGE used in trigger messages, see the `priority-sql-ref` skill.
 
 ---
 

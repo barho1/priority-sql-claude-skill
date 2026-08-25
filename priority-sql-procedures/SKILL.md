@@ -1,10 +1,22 @@
+---
+name: priority-sql-procedures
+description: >
+  Priority ERP procedure development — step types (B/C/R/F/P/I/L),
+  parameter types (CHAR/INT/REAL/DATE/ASCII/FILE/LINE/NFILE), INPUT vs
+  INPUTF, processed report pattern (3-step structure), and FILE parameters
+  (passing linked tables between SQLI and report steps). Use when designing
+  or implementing a Priority procedure, configuring step types, or
+  structuring data flow between steps. For the SQL code inside SQLI steps,
+  see the `priority-sql` skill.
+---
+
 # Procedures
 
 A procedure is a sequence of numbered steps executed in order by default,
 but flow can jump between steps using `GOTO` (Basic command steps).
 
-For trigger code used in procedure SQLI steps, see the procedural SQL references.
-For form trigger context, see the form triggers reference.
+For trigger code used in procedure SQLI steps, see the `priority-sql` skill.
+For form trigger context, see the `priority-sql-forms` skill.
 
 ### Step types
 

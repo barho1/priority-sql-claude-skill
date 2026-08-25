@@ -37,7 +37,7 @@ trigger (extract a repeated block into a subroutine). Use `#INCLUDE`
 for reuse *across* different forms or trigger positions (share logic
 between LOGPART and PART, or between multiple PRE-INSERT triggers).
 
-For the abstract SUB pattern that builds on `#INCLUDE`, see the advanced patterns reference.
+For the abstract SUB pattern that builds on `#INCLUDE`, see the `priority-sql-advanced` skill.
 
 Ref: [Including One Trigger in Another](https://prioritysoftware.github.io/sdk/Include-Triggers)
 
