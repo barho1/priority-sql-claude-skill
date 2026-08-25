@@ -2,28 +2,19 @@
 name: priority-sql
 description: >
   Priority ERP development — procedural SQL (SQLI), form triggers, procedures,
-  DBI schema, and outbound integrations. Covers unsupported SQL syntax
-  (ISNULL, ||, subquery in SET, UPDATE...FROM), cursor loops
-  (DECLARE/OPEN/FETCH/LOOP/CLOSE, skip-iteration, prev-row tracking), temp
-  tables (STACK/STACK4/GENERALLOAD), EXECUTE INTERFACE and multi-level
-  document loading, control flow (GOTO/GOSUB/LABEL), message commands
-  (ERRMSG/WRNMSG/GENMSG/ENTMESSAGE), return values (:RETVAL), variable
-  scoping (:$., :$$., :$1., :GLOBAL.), code style; form triggers of every
-  type (CHECK-FIELD, POST-FIELD, CHOOSE-FIELD, SEARCH-FIELD,
-  PRE/POST-INSERT, PRE/POST-UPDATE, PRE/POST-DELETE, PRE/POST-FORM), trigger
-  execution order, CHOOSE-FIELD picklists, #INCLUDE and buffers, EFORM form
-  creation and metadata; procedure step types (B/C/R/F/P/I/L), parameter
-  types and processed reports; DBI DDL (CREATE TABLE, FOR TABLE INSERT,
-  column types, UNIQUE/NONUNIQUE indexes, expansion tables); scalar and
-  system functions (STRCAT, ITOA, ATOI, SUBSTR, STRPIECE, date functions,
-  SQL.TMPFILE, SQL.USER, SQL.DATE, SQL.GUID) and system variables
-  (:SCRLINE, :PAR1-3, :FORM_INTERFACE, :PREFORMQUERY); and WSCLIENT for
-  calling external web services out of Priority. Use for any Priority ERP
-  development task — writing or debugging SQL, designing triggers or
-  procedures, creating tables or forms, or looking up a function or
-  variable. Context cues: ERRMSG, GOSUB, LINK/UNLINK, SQL.TMPFILE,
-  :$.FIELD, STACK, CURSOR, CHOOSE-FIELD, EFORM, CREATE TABLE, WSCLIENT.
-  For the REST/OData API *into* Priority, see the `priority-rest-api` skill.
+  DBI. Unsupported SQL syntax (ISNULL, ||, subquery in SET, UPDATE...FROM),
+  cursor loops (DECLARE/OPEN/FETCH/LOOP/CLOSE,
+  skip-iteration, prev-row tracking), temp tables (STACK/STACK4/GENERALLOAD),
+  EXECUTE INTERFACE, control flow (GOTO/GOSUB/LABEL), message commands
+  (ERRMSG/WRNMSG/GENMSG/ENTMESSAGE), :RETVAL, variable scoping (:$., :$$.,
+  :$1., :GLOBAL.); form triggers (CHECK-FIELD, POST-FIELD, CHOOSE-FIELD,
+  SEARCH-FIELD, PRE/POST-INSERT/UPDATE/DELETE, PRE/POST-FORM), #INCLUDE,
+  buffers, EFORM; procedure step types (B/C/R/F/P/I/L); DBI DDL (CREATE
+  TABLE, FOR TABLE INSERT); scalar functions (STRCAT, ITOA, ATOI, SUBSTR,
+  STRPIECE, date functions), SQL.* functions, system variables (:SCRLINE,
+  :PAR1-3, :FORM_INTERFACE, :PREFORMQUERY); WSCLIENT. Context cues: ERRMSG, GOSUB, LINK/UNLINK,
+  SQL.TMPFILE, :$.FIELD, STACK, CURSOR, CHOOSE-FIELD, EFORM, CREATE TABLE,
+  WSCLIENT. For the REST/OData API *into* Priority, see `priority-rest-api`.
 ---
 
 # Priority ERP Development
